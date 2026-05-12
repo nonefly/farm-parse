@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package gamepb.taskpb;
+
+message TaskInfo {
+    int64 id = 1;
+    int64 type = 2;
+    string title = 3;
+    string description = 4;
+    int64 progress = 5;
+    int64 target = 6;
+    int64 status = 7;
+    int64 reward_gold = 8;
+    int64 reward_exp = 9;
+    int64 reward_item_id = 10;
+    int64 reward_item_count = 11;
+}
+
+message TaskListRequest {
+}
+
+message TaskListReply {
+    repeated TaskInfo tasks = 1;
+}
+
+message ClaimRewardRequest {
+    int64 task_id = 1;
+}
+
+message ClaimRewardReply {
+    bool success = 1;
+    int64 error_code = 2;
+}

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package gamepb.userpb;
+
+message BasicInfo {
+    int64 gid = 1;
+    string name = 2;
+    int64 avatar = 3;
+    int64 level = 4;
+    int64 exp = 5;
+    int64 gold = 6;
+    int64 diamond = 7;
+    int64 vip_level = 8;
+    int64 vip_exp = 9;
+    int64 land_count = 10;
+    int64 friend_count = 11;
+    int64 achievement_count = 12;
+    int64 title_id = 13;
+    string signature = 14;
+    int64 create_time = 15;
+    int64 last_login_time = 16;
+}

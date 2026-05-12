@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package gamepb.friendpb;
+
+import "userpb.proto";
+
+message FriendInfo {
+    int64 gid = 1;
+    string name = 2;
+    int64 avatar = 3;
+    int64 level = 4;
+    int64 land_count = 5;
+    int64 online_status = 6;
+    int64 last_online_time = 7;
+    bool is_mutual = 8;
+    int64 intimacy = 9;
+}
+
+message FriendListRequest {
+    int64 page = 1;
+    int64 page_size = 2;
+}
+
+message FriendListReply {
+    repeated FriendInfo friends = 1;
+    int64 total = 2;
+}
+
+message AddFriendRequest {
+    int64 gid = 1;
+    string message = 2;
+}
+
+message AddFriendReply {
+    bool success = 1;
+    int64 error_code = 2;
+}
+
+message AcceptFriendRequest {
+    int64 gid = 1;
+}
+
+message AcceptFriendReply {
+    bool success = 1;
+}
+
+message DeleteFriendRequest {
+    int64 gid = 1;
+}
+
+message DeleteFriendReply {
+    bool success = 1;
+}
+
+message SearchFriendRequest {
+    string keyword = 1;
+}
+
+message SearchFriendReply {
+    repeated FriendInfo results = 1;
+}
