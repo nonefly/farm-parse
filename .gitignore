@@ -1,0 +1,30 @@
+# 依赖目录
+node_modules
+
+# SSL 证书目录（首次运行自动生成）
+proxy-certs/
+
+# 用户证书目录（打包后使用）
+.farm-parse/
+
+# 打包输出目录
+dist/
+
+# 打包生成的压缩文件
+farm-parse.zip
+
+# pkg 打包缓存
+.pkg/
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# 测试文件
+test-auth.js

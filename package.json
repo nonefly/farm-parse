@@ -1,0 +1,55 @@
+{
+  "name": "farm-parse",
+  "version": "1.0.0",
+  "description": "",
+  "main": "proxy-server.js",
+  "bin": "proxy-server.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "start": "node proxy-server.js",
+    "proxy": "node proxy-server.js",
+    "check": "node --check proxy-server.js",
+    "build": "node build.js",
+    "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse.exe"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonefly/farm-parse.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nonefly/farm-parse/issues"
+  },
+  "homepage": "https://github.com/nonefly/farm-parse#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "http-mitm-proxy": "^1.1.0",
+    "protobufjs": "^8.2.0",
+    "ws": "^8.20.1"
+  },
+  "devDependencies": {
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1",
+    "pkg": "^5.8.0"
+  },
+  "pkg": {
+    "assets": [
+      "auth.html",
+      "index.html",
+      "proxy.html",
+      "js/**/*.js",
+      "lib/**/*.js",
+      "proto/**/*.proto",
+      "data/**/*.json"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  }
+}

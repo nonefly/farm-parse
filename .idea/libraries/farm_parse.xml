@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="farm-parse">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/farm-parse.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

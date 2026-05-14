@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>授权验证</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); padding: 40px; max-width: 450px; width: 100%; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { font-size: 24px; color: #333; margin-top: 10px; }
+        .logo .icon { font-size: 48px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 14px; color: #666; margin-bottom: 8px; }
+        .form-group input { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.3s; }
+        .form-group input:focus { outline: none; border-color: #667eea; }
+        .machine-code-box { background: #f5f5f5; border-radius: 8px; padding: 16px; word-break: break-all; font-family: monospace; font-size: 13px; color: #333; margin-bottom: 10px; }
+        .copy-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: background 0.3s; }
+        .copy-btn:hover { background: #5a6fd6; }
+        .verify-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: opacity 0.3s; margin-top: 10px; }
+        .verify-btn:hover { opacity: 0.9; }
+        .verify-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status { margin-top: 20px; padding: 12px 16px; border-radius: 8px; font-size: 14px; text-align: center; }
+        .status.success { background: #dcfce7; color: #166534; }
+        .status.error { background: #fee2e2; color: #991b1b; }
+        .status.info { background: #dbeafe; color: #1e40af; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hint { font-size: 12px; color: #999; text-align: center; margin-top: 15px; }
+        .version { font-size: 11px; color: #ccc; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <div class="icon">🌾</div>
+            <h1>Farm Parse</h1>
+        </div>
+        
+        <div class="form-group">
+            <label>您的机器码</label>
+            <div class="machine-code-box" id="machineCode">加载中...</div>
+            <button class="copy-btn" onclick="copyMachineCode()">📋 复制机器码</button>
+        </div>
+
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" id="username" placeholder="请输入您的用户名">
+        </div>
+
+        <button class="verify-btn" id="verifyBtn" onclick="verifyAuth()">
+            <span id="btnText">🔐 验证授权</span>
+            <span id="btnLoading" class="loading" style="display: none;"></span>
+        </button>
+
+        <div class="status info" id="status">请将机器码发送给管理员获取授权</div>
+
+        <div class="hint">
+            💡 提示：复制机器码发送给管理员，管理员配置后即可使用
+        </div>
+
+        <div class="version" id="version">v1.0.0</div>
+    </div>
+
+    <script>
+        async function loadMachineCode() {
+            try {
+                const res = await fetch('/api/machine');
+                const data = await res.json();
+                document.getElementById('machineCode').textContent = data.machineCode;
+            } catch (err) {
+                document.getElementById('machineCode').textContent = '获取失败';
+            }
+        }
+
+        async function copyMachineCode() {
+            const code = document.getElementById('machineCode').textContent;
+            if (code && code !== '获取失败' && code !== '加载中...') {
+                await navigator.clipboard.writeText(code);
+                const status = document.getElementById('status');
+                status.className = 'status success';
+                status.textContent = '✓ 已复制到剪贴板';
+                setTimeout(() => {
+                    status.className = 'status info';
+                    status.textContent = '请将机器码发送给管理员获取授权';
+                }, 2000);
+            }
+        }
+
+        async function verifyAuth() {
+            const username = document.getElementById('username').value.trim();
+            const verifyBtn = document.getElementById('verifyBtn');
+            const btnText = document.getElementById('btnText');
+            const btnLoading = document.getElementById('btnLoading');
+            const status = document.getElementById('status');
+
+            if (!username) {
+                status.className = 'status error';
+                status.textContent = '请输入用户名';
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            btnText.textContent = '验证中';
+            btnLoading.style.display = 'inline-block';
+            status.className = 'status info';
+            status.textContent = '正在验证授权...';
+
+            try {
+                const res = await fetch('/api/authorize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    status.className = 'status success';
+                    status.textContent = `✓ 授权成功！欢迎, ${username}`;
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/proxy.html';
+                    }, 1500);
+                } else {
+                    status.className = 'status error';
+                    status.textContent = data.message || '授权失败，请联系管理员';
+                }
+            } catch (err) {
+                status.className = 'status error';
+                status.textContent = '网络错误，请检查网络连接';
+            } finally {
+                verifyBtn.disabled = false;
+                btnText.textContent = '🔐 验证授权';
+                btnLoading.style.display = 'none';
+            }
+        }
+
+        loadMachineCode();
+    </script>
+</body>
+</html>

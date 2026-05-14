@@ -471,21 +471,11 @@ function decodeLandsFromBody(meta, bodyData) {
     const serviceName = meta?.service_name || '';
     const methodName = meta?.method_name || '';
 
-    if (serviceName.includes('VisitService') || methodName.includes('Enter')) {
-        return decodeEnterReply(new ProtoReader(bodyData));
+    if (!serviceName.includes('VisitService') || !methodName.includes('Enter')) {
+        throw new Error('仅支持 VisitService.Enter 好友土地信息');
     }
 
-    const allLandsData = decodeFarmLandList(new ProtoReader(bodyData));
-    if (countPlants(allLandsData.lands) > 0) {
-        return allLandsData;
-    }
-
-    const enterData = decodeEnterReply(new ProtoReader(bodyData));
-    if (countPlants(enterData.lands) > 0) {
-        return enterData;
-    }
-
-    return allLandsData;
+    return decodeEnterReply(new ProtoReader(bodyData));
 }
 
 function extractMutants(lands) {
@@ -774,26 +764,193 @@ function renderResults(data) {
 
     html += '</div></div>';
 
-    if (mutants.length > 0) {
-        html += '<div class="p-4 sm:p-6 border-t border-gray-100">';
-        html += '<h3 class="text-sm font-semibold text-gray-600 mb-4">变异详情</h3>';
-        for (const mutant of mutants) {
-            const detailText = mutant.mutantDetails.map(item => `${item.name}(${item.configId})`).join(', ');
-            html += `
-                <div class="border-b border-gray-100 last:border-b-0 py-3">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-lg">${mutant.plantIcon}</span>
-                            <span class="font-semibold text-gray-800">${escapeHtml(mutant.plantName)}</span>
-                            <span class="text-xs text-gray-500">土地${mutant.landId}</span>
-                        </div>
-                    </div>
-                    <div class="text-xs text-gray-500">${escapeHtml(detailText)}</div>
-                </div>
-            `;
+    content.innerHTML = html;
+}
+
+function decodeBasicInfo(reader) {
+    const basic = {};
+    while (reader.remaining() > 0) {
+        const tag = reader.readVarint();
+        const fieldId = tag >>> 3;
+        const wireType = tag & 7;
+        switch (fieldId) {
+            case 1: basic.gid = reader.readVarint(); break;
+            case 2: basic.name = reader.readString(); break;
+            case 3: basic.avatar = reader.readVarint(); break;
+            case 4: reader.skipField(wireType); break;
+            case 6: basic.gold = reader.readVarint(); break;
+            case 7: basic.diamond = reader.readVarint(); break;
+            case 10: basic.landCount = reader.readVarint(); break;
+            default: reader.skipField(wireType);
         }
-        html += '</div>';
     }
+    return basic;
+}
+
+function decodeEnterReply(reader) {
+    const data = { lands: [], friendInfo: null };
+    while (reader.remaining() > 0) {
+        const tag = reader.readVarint();
+        const fieldId = tag >>> 3;
+        const wireType = tag & 7;
+        switch (fieldId) {
+            case 1: {
+                const len = reader.readVarint();
+                const subBuf = reader.buf.slice(reader.pos, reader.pos + len);
+                reader.pos += len;
+                data.friendInfo = decodeBasicInfo(new ProtoReader(subBuf));
+                break;
+            }
+            case 2: {
+                const len = reader.readVarint();
+                const subBuf = reader.buf.slice(reader.pos, reader.pos + len);
+                reader.pos += len;
+                data.lands.push(decodeLandInfo(new ProtoReader(subBuf)));
+                break;
+            }
+            default:
+                reader.skipField(wireType);
+        }
+    }
+    return data;
+}
+
+function renderPersonCard(label, person) {
+    if (!person) {
+        return `
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div class="text-xs text-gray-500 mb-1">${label}</div>
+                <div class="text-sm font-semibold text-gray-700">待捕获</div>
+                <div class="text-xs text-gray-500 mt-1">当前协议帧未包含该用户信息</div>
+            </div>
+        `;
+    }
+    return `
+        <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-xs text-gray-500 mb-1">${label}</div>
+            <div class="text-sm font-semibold text-gray-700">${escapeHtml(person.name || '未知')}</div>
+            <div class="text-xs text-gray-500 mt-1">GID ${escapeHtml(person.gid || '-')} · Lv.${person.level || 0}</div>
+        </div>
+    `;
+}
+
+function getMutantTypeById(mutantConfigId) {
+    const value = Number(mutantConfigId);
+    const middle3 = Math.floor(value / 100) % 1000;
+    const middle2 = Math.floor(value / 100) % 100;
+    if (MUTATION_TYPE_MAP[value]) return MUTATION_TYPE_MAP[value];
+    if (MUTATION_TYPE_MAP[middle3]) return MUTATION_TYPE_MAP[middle3];
+    if (MUTATION_TYPE_MAP[middle2]) return MUTATION_TYPE_MAP[middle2];
+    return { name: '变异', icon: '✨', type: 0, class: 'mutant-gold', color: '#eab308' };
+}
+
+function renderResults(data) {
+    const container = document.getElementById('resultContainer');
+    const content = document.getElementById('resultContent');
+    const status = document.getElementById('resultStatus');
+    const lands = [...(data.lands || [])].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+    const mutants = extractMutants(lands);
+    const meta = data.meta || {};
+
+    container.style.display = 'block';
+    status.className = mutants.length > 0
+        ? 'px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700'
+        : 'px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700';
+    status.textContent = mutants.length > 0 ? `发现 ${mutants.length} 个变异` : '解析成功';
+
+    let html = `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 sm:p-6 border-b border-gray-100">
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">好友</div>
+                <div class="text-sm font-semibold text-gray-700">${escapeHtml(data.friendInfo?.name || '未知')}</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">好友 GID</div>
+                <div class="text-sm font-semibold text-gray-700">${escapeHtml(data.friendInfo?.gid || '-')}</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">好友等级</div>
+                <div class="text-sm font-semibold text-gray-700">Lv.${data.friendInfo?.level || 0}</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">土地数</div>
+                <div class="text-sm font-semibold text-gray-700">${lands.length}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 p-4 sm:p-6 border-b border-gray-100">
+            ${renderPersonCard('当前用户', data.currentUser)}
+            ${renderPersonCard('好友', data.friendInfo)}
+        </div>
+        <div class="p-4 sm:p-6">
+            <h3 class="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2">
+                <span>🌾</span> 农场土地 (4x6)
+            </h3>
+            <div class="land-grid">
+    `;
+
+    for (let row = 0; row < 4; row++) {
+        for (let col = 5; col >= 0; col--) {
+            const landId = col * 4 + row + 1;
+            const land = lands.find(l => Number(l.id) === landId);
+            if (!land) {
+                html += '<div class="land-cell locked"><span class="text-xs text-gray-400">--</span></div>';
+                continue;
+            }
+
+            const hasPlant = !!(land.plant && land.plant.id);
+            const mutantInfo = mutants.find(m => Number(m.landId) === landId);
+            const isMutant = !!mutantInfo;
+            let cellClass = 'land-cell ';
+            let mutantTypeInfo = null;
+
+            if (!land.unlocked) {
+                cellClass += 'locked';
+            } else if (!hasPlant) {
+                cellClass += 'unlocked empty';
+            } else if (isMutant && mutantInfo.mutantTypeInfo) {
+                cellClass += `mutant ${mutantInfo.mutantTypeInfo.class || 'mutant-gold'}`;
+                mutantTypeInfo = mutantInfo.mutantTypeInfo;
+            } else {
+                cellClass += 'unlocked';
+            }
+
+            const plant = land.plant || {};
+            const lastPhase = plant.phases?.[plant.phases.length - 1];
+            const phaseInfo = getPhaseInfo(lastPhase?.phase || 0);
+            const plantName = hasPlant ? (plant.name || getPlantName(plant.id)) : '';
+            html += `<div class="${cellClass}" title="土地${landId}: ${escapeHtml(hasPlant ? plantName : '空土地')}">
+                <span class="text-xs text-gray-400 font-mono" style="position:absolute;top:4px;left:4px;font-size:8px;">#${landId}</span>`;
+
+            if (!land.unlocked) {
+                html += '<span class="text-xs text-gray-400">🔒</span>';
+            } else if (!hasPlant) {
+                html += '<span class="text-xs text-amber-700">空</span>';
+            } else {
+                html += `
+                    <span class="plant-icon">${isMutant && mutantTypeInfo ? mutantTypeInfo.icon : getPlantIcon(plantName)}</span>
+                    <span class="plant-name">${escapeHtml(plantName)}</span>
+                    <span class="plant-phase">${escapeHtml(phaseInfo.name)}</span>
+                `;
+                if (isMutant && mutantInfo.mutantDetails.length > 0) {
+                    const seenTypes = new Set();
+                    html += '<div class="mutant-tags">';
+                    for (const detail of mutantInfo.mutantDetails) {
+                        if (seenTypes.has(detail.mutantType)) continue;
+                        seenTypes.add(detail.mutantType);
+                        html += `<span class="mutant-type-tag">${escapeHtml(detail.mutantTypeIcon || '*')} ${escapeHtml(detail.mutantType)}</span>`;
+                    }
+                    html += '</div>';
+                }
+            }
+
+            if (isMutant) {
+                html += '<div class="mutant-badge">✦</div>';
+            }
+            html += '</div>';
+        }
+    }
+
+    html += '</div></div>';
 
     content.innerHTML = html;
 }
@@ -818,10 +975,10 @@ function handleParse(event) {
 
         const farmData = decodeLandsFromBody(gateMessage.meta, gateMessage.body);
         farmData.meta = gateMessage.meta;
+        farmData.currentUser = null;
         renderResults(farmData);
         
     } catch (error) {
-        console.error('解析错误:', error);
         showToast('解析失败: ' + error.message);
     }
 }
