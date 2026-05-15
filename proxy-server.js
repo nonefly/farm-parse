@@ -51,29 +51,10 @@ function setSystemProxy(enable) {
             
             try {
                 execSync('netsh winhttp reset proxy');
-            } catch (e) {
-                console.log('netsh reset proxy failed (may be normal):', e.message);
-            }
+            } catch {}
             try {
                 execSync(`netsh winhttp set proxy proxy-server="127.0.0.1:${PROXY_PORT}" bypass-list="${TARGET_HOST};localhost"`);
-            } catch (e) {
-                console.log('netsh set proxy failed:', e.message);
-            }
-            
-            try {
-                execSync(`powershell -Command "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' -Name ProxyEnable -Value 1"`);
-                execSync(`powershell -Command "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' -Name ProxyServer -Value '127.0.0.1:${PROXY_PORT}'"`);
-            } catch (e) {
-                console.log('powershell proxy settings failed:', e.message);
-            }
-            
-            setTimeout(() => {
-                const check = getCurrentProxySettings();
-                console.log('Proxy settings after enable:', check);
-                if (!check.enable || !check.server.includes(`${PROXY_PORT}`)) {
-                    console.log('WARNING: Proxy settings may not have taken effect');
-                }
-            }, 1000);
+            } catch {}
             
             return { success: true, message: '系统代理已开启，请确保已安装根证书' };
         } else {
@@ -101,10 +82,6 @@ function setSystemProxy(enable) {
             
             try {
                 execSync('netsh winhttp reset proxy');
-            } catch {}
-            
-            try {
-                execSync(`powershell -Command "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' -Name ProxyEnable -Value 0"`);
             } catch {}
             
             return { success: true, message: '系统代理已关闭' };
@@ -264,29 +241,15 @@ async function getPowerShellValue(script) {
 async function collectMachineInfo() {
     if (machineInfoCache) return machineInfoCache;
 
-    const [boardUuidWmic, diskSerialWmic] = await Promise.all([
-        getWmicValue('csproduct', 'UUID'),
-        getWmicValue('diskdrive', 'SerialNumber')
-    ]);
-
+    const boardUuidWmic = await getWmicValue('csproduct', 'UUID');
     const boardUuid = boardUuidWmic || await getPowerShellValue('(Get-CimInstance Win32_ComputerSystemProduct).UUID');
-    const diskSerial = diskSerialWmic || await getPowerShellValue('(Get-CimInstance Win32_DiskDrive | Select-Object -First 1 -ExpandProperty SerialNumber)');
-    const macs = Object.values(os.networkInterfaces())
-        .flat()
-        .filter(item => item && !item.internal && item.mac && item.mac !== '00:00:00:00:00:00')
-        .map(item => item.mac.toUpperCase())
-        .sort();
 
     const parts = {
-        boardUuid: normalizeText(boardUuid).toUpperCase(),
-        diskSerial: normalizeText(diskSerial).toUpperCase(),
-        macs
+        boardUuid: normalizeText(boardUuid).toUpperCase()
     };
     const fingerprint = [
         MACHINE_CODE_SALT,
-        parts.boardUuid,
-        parts.diskSerial,
-        parts.macs.join(',')
+        parts.boardUuid
     ].join('|');
 
     machineInfoCache = {
@@ -408,7 +371,8 @@ async function loadProto() {
     const root = await protobuf.load(protoFiles);
     protoTypes = {
         GateMessage: root.lookupType('gatepb.Message'),
-        EnterReply: root.lookupType('gamepb.visitpb.EnterReply')
+        EnterReply: root.lookupType('gamepb.visitpb.EnterReply'),
+        AllLandsReply: root.lookupType('gamepb.plantpb.AllLandsReply')
     };
 
     const plantFile = path.join(__dirname, 'data', 'Plant.json');
@@ -498,19 +462,28 @@ function decodeFarmData(meta, body) {
     const serviceName = meta.serviceName || '';
     const methodName = meta.methodName || '';
 
-    if (!serviceName.includes('VisitService') || !methodName.includes('Enter')) {
-        return null;
+    if (serviceName.includes('VisitService') && methodName.includes('Enter')) {
+        const reply = protoTypes.EnterReply.decode(body);
+        const lands = (reply.lands || []).map(normalizeLand);
+        if (lands.length === 0) return null;
+        return {
+            lands,
+            friendInfo: normalizeBasicInfo(reply.basic),
+            currentUser: state.currentUser
+        };
     }
 
-    const reply = protoTypes.EnterReply.decode(body);
-    const lands = (reply.lands || []).map(normalizeLand);
-    if (lands.length === 0) return null;
+    if (serviceName.includes('PlantService') && methodName.includes('AllLands')) {
+        const reply = protoTypes.AllLandsReply.decode(body);
+        const lands = (reply.lands || []).map(normalizeLand);
+        if (lands.length === 0) return null;
+        return {
+            lands,
+            isOwnFarm: true
+        };
+    }
 
-    return {
-        lands,
-        friendInfo: normalizeBasicInfo(reply.basic),
-        currentUser: state.currentUser
-    };
+    return null;
 }
 
 function parseFarmFrame(message, direction) {
@@ -631,7 +604,7 @@ function startProxy() {
         console.log(`代理服务已启动: 127.0.0.1:${PROXY_PORT}`);
         console.log(`目标主机: ${TARGET_HOST}${TARGET_PATH_PREFIX}`);
         console.log(`证书目录: ${CERT_DIR}`);
-        console.log('注意：仅目标主机的HTTPS流量会被SSL拦截，其他网站直接透传');
+        console.log('注意：仅目标主机的指定会被监听，其他网站直接透传');
     });
 }
 
@@ -725,20 +698,59 @@ function startHttp() {
         });
     });
 
+    app.get('/api/proxy/refresh', (_, res) => {
+        try {
+            execSync('ipconfig /flushdns');
+            try {
+                execSync('netsh winhttp reset proxy');
+            } catch {}
+            res.json({ success: true, message: '网络设置已刷新' });
+        } catch (error) {
+            res.json({ success: false, message: `刷新失败: ${error.message}` });
+        }
+    });
+
+    app.get('/api/about', (_, res) => {
+        fetch('https://gitee.com/zy_nonefly/docs/raw/master/About')
+            .then(response => {
+                if (!response.ok) {
+                    res.status(response.status).send('');
+                    return;
+                }
+                return response.text();
+            })
+            .then(text => {
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                res.send(text);
+            })
+            .catch(() => {
+                res.status(500).send('');
+            });
+    });
+
     if (IS_PACKAGED) {
         app.use((req, res, next) => {
-            const allowed = req.path === '/auth.html'
-                || req.path === '/api/machine'
-                || req.path === '/api/authorize'
-                || req.path === '/api/auth-status';
-            if (state.authorized || allowed) {
+            if (state.authorized) {
                 next();
                 return;
             }
+            
+            const staticExtensions = ['.html', '.js', '.css', '.md', '.json', '.proto', '.pem', '.cer', '.crt'];
+            const isStaticFile = staticExtensions.some(ext => req.path.endsWith(ext));
+            
+            const authApiPaths = ['/api/machine', '/api/authorize', '/api/auth-status'];
+            const isAuthApi = authApiPaths.includes(req.path);
+            
+            if (isStaticFile || isAuthApi) {
+                next();
+                return;
+            }
+            
             if (req.path.startsWith('/api/')) {
                 res.status(401).json({ message: '请先完成授权。' });
                 return;
             }
+            
             res.redirect('/auth.html');
         });
     }

@@ -3,48 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>农场变异代理监控</title>
+  <title>农场信息解析</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#f0fdf4,#d1fae5);color:#111827}.page{max-width:960px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.title h1{margin:0;font-size:26px;color:#166534}.title p{margin:6px 0 0;color:#15803d;font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:8px;padding:9px 12px;font-weight:700;text-decoration:none;font-size:14px}.btn.primary{background:#16a34a;color:#fff;border-color:#16a34a}.btn.active{background:#dc2626;color:#fff;border-color:#dc2626}.panel{background:#fff;border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,.08),0 4px 6px -4px rgba(0,0,0,.08);overflow:hidden;margin-bottom:16px}.panel-head{padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-title{font-size:16px;font-weight:800}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:800}.badge.ok{background:#dcfce7;color:#166534}.badge.warn{background:#fef3c7;color:#92400e}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px;border-bottom:1px solid #f3f4f6}.summary-card,.person-card{background:#f9fafb;border-radius:8px;padding:12px;text-align:center}.label{font-size:12px;color:#6b7280;margin-bottom:5px}.value{font-size:14px;font-weight:800;color:#374151;word-break:break-word}.people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;border-bottom:1px solid #f3f4f6}.person-card{text-align:left}.person-name{font-size:16px;font-weight:800;color:#111827}.person-meta{font-size:12px;color:#6b7280;margin-top:4px}.section{padding:16px}.section-title{font-size:14px;font-weight:800;color:#4b5563;margin:0 0 12px;display:flex;align-items:center;gap:8px}.land-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.land-cell{aspect-ratio:1;border-radius:10px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border:2px solid #e5e7eb;overflow:hidden}.land-cell.locked{background:#f3f4f6;border-color:#d1d5db;color:#9ca3af}.land-cell.unlocked{background:#f0fdf4;border-color:#86efac}.land-cell.empty{background:#fef3c7;border-color:#fbbf24}.land-cell.mutant{animation:glow 2s ease-in-out infinite}.land-cell.mutant-ice{background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6}.land-cell.mutant-love{background:linear-gradient(135deg,#fce7f3,#fbcfe8);border-color:#ec4899}.land-cell.mutant-dark{background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b5563}.land-cell.mutant-wet{background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-color:#06b6d4}.land-cell.mutant-gold{background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#eab308}.land-cell.mutant-crystal{background:linear-gradient(135deg,#f3e8ff,#e9d5ff);border-color:#a855f7}.land-cell.mutant-shine{background:linear-gradient(135deg,#fef9c3,#fef08a);border-color:#fbbf24}.land-cell.mutant-lucky{background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#22c55e}.land-cell.mutant-pumpkin{background:linear-gradient(135deg,#fdba74,#fb923c);border-color:#ea580c}.land-cell.mutant-tower{background:linear-gradient(135deg,#ddd6fe,#c4b5fd);border-color:#7c3aed}.land-cell.mutant-ice-crystal{background:linear-gradient(135deg,#e0f2fe,#bae6fd);border-color:#0ea5e9}.land-cell.mutant-desert{background:linear-gradient(135deg,#fef3c7,#fed7aa);border-color:#d97706}.land-cell.mutant-luxury{background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#f59e0b}.land-cell.mutant-snow{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#7dd3fc}@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(245,158,11,.35)}50%{box-shadow:0 0 16px rgba(245,158,11,.6)}}.land-no{position:absolute;top:4px;left:4px;font-size:8px;color:#9ca3af;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.mutant-badge{position:absolute;top:-6px;right:-6px;background:#f59e0b;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;box-shadow:0 2px 4px rgba(0,0,0,.2)}.plant-icon{font-size:24px;line-height:1;margin-bottom:2px}.plant-name{font-size:10px;font-weight:800;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;margin-bottom:1px}.plant-phase{font-size:8px;color:#6b7280;margin-bottom:1px}.land-cell.mutant-dark .plant-name,.land-cell.mutant-dark .plant-phase{color:#f9fafb}.mutant-tags{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:1px}.mutant-type-tag{font-size:8px;font-weight:700;padding:1px 4px;border-radius:4px;background:rgba(0,0,0,.1);color:#374151}.land-cell.mutant-dark .mutant-type-tag{background:rgba(255,255,255,.2);color:#f9fafb}.details{display:grid;gap:10px}.detail-row{border-bottom:1px solid #f3f4f6;padding:10px 0}.detail-row:last-child{border-bottom:0}.detail-title{display:flex;align-items:center;gap:8px;font-weight:800}.detail-text{margin-top:6px;color:#6b7280;font-size:13px}.empty{padding:36px;text-align:center;color:#6b7280;background:#fff;border:1px dashed #d1d5db;border-radius:12px}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.help{font-size:13px;color:#4b5563;line-height:1.6}.status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}@media(max-width:760px){.page{padding:14px}.top{display:block}.actions{margin-top:12px}.summary,.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.people{grid-template-columns:1fr}.land-grid{gap:6px}.plant-icon{font-size:20px}}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#f0fdf4,#d1fae5);color:#111827}.page{max-width:960px;margin:0 auto;padding:20px 20px 140px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.title h1{margin:0;font-size:26px;color:#166534}.title p{margin:6px 0 0;color:#15803d;font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:8px;padding:9px 12px;font-weight:700;text-decoration:none;font-size:14px}.btn.primary{background:#16a34a;color:#fff;border-color:#16a34a}.btn.active{background:#dc2626;color:#fff;border-color:#dc2626}.modal{position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;display:flex;align-items:center;justify-content:center}.modal-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5)}.modal-content{position:relative;background:#fff;border-radius:12px;width:90%;max-width:600px;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}.modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e5e7eb}.modal-header h2{margin:0;font-size:18px}.modal-close{background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer;padding:4px 8px}.modal-close:hover{color:#111827}.modal-body{padding:20px;max-height:400px;overflow-y:auto;line-height:1.5;font-family:system-ui}.modal-body ul{margin:8px 0;padding-left:20px}.modal-body li{margin:4px 0}.modal-body h1,.modal-body h2,.modal-body h3{margin:12px 0 6px}.modal-body p{margin:6px 0}.modal-footer{padding:16px 20px;border-top:1px solid #e5e7eb;text-align:right}.extra-info{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(135deg,#f0fdf4,#d1fae5);border-top:1px solid #bbf7d0;padding:12px 20px;text-align:center;max-height:100px;overflow-y:auto;z-index:100}.extra-content{font-size:12px;color:#15803d;line-height:1.5}.panel{background:#fff;border-radius:10px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);overflow:hidden;margin-bottom:12px}.panel-head{padding:10px 14px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-title{font-size:15px;font-weight:700}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700}.badge.ok{background:#dcfce7;color:#166534}.badge.warn{background:#fef3c7;color:#92400e}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 14px;border-bottom:1px solid #f3f4f6}.summary-card,.person-card{background:#f9fafb;border-radius:8px;padding:12px;text-align:center}.label{font-size:12px;color:#6b7280;margin-bottom:5px}.value{font-size:14px;font-weight:800;color:#374151;word-break:break-word}.people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;border-bottom:1px solid #f3f4f6}.person-card{text-align:left}.person-name{font-size:16px;font-weight:800;color:#111827}.person-meta{font-size:12px;color:#6b7280;margin-top:4px}.section{padding:16px}.section-title{font-size:14px;font-weight:800;color:#4b5563;margin:0 0 12px;display:flex;align-items:center;gap:8px}.land-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.land-cell{aspect-ratio:1;border-radius:10px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border:2px solid #e5e7eb;overflow:hidden}.land-cell.locked{background:#f3f4f6;border-color:#d1d5db;color:#9ca3af}.land-cell.unlocked{background:#f0fdf4;border-color:#86efac}.land-cell.empty{background:#fef3c7;border-color:#fbbf24}.land-cell.mutant{animation:glow 2s ease-in-out infinite}.land-cell.mutant-ice{background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6}.land-cell.mutant-love{background:linear-gradient(135deg,#fce7f3,#fbcfe8);border-color:#ec4899}.land-cell.mutant-dark{background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b5563}.land-cell.mutant-wet{background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-color:#06b6d4}.land-cell.mutant-gold{background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#eab308}.land-cell.mutant-crystal{background:linear-gradient(135deg,#f3e8ff,#e9d5ff);border-color:#a855f7}.land-cell.mutant-shine{background:linear-gradient(135deg,#fef9c3,#fef08a);border-color:#fbbf24}.land-cell.mutant-lucky{background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#22c55e}.land-cell.mutant-pumpkin{background:linear-gradient(135deg,#fdba74,#fb923c);border-color:#ea580c}.land-cell.mutant-tower{background:linear-gradient(135deg,#ddd6fe,#c4b5fd);border-color:#7c3aed}.land-cell.mutant-ice-crystal{background:linear-gradient(135deg,#e0f2fe,#bae6fd);border-color:#0ea5e9}.land-cell.mutant-desert{background:linear-gradient(135deg,#fef3c7,#fed7aa);border-color:#d97706}.land-cell.mutant-luxury{background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#f59e0b}.land-cell.mutant-snow{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#7dd3fc}@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(245,158,11,.35)}50%{box-shadow:0 0 16px rgba(245,158,11,.6)}}.land-no{position:absolute;top:4px;left:4px;font-size:8px;color:#9ca3af;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.mutant-badge{position:absolute;top:-6px;right:-6px;background:#f59e0b;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;box-shadow:0 2px 4px rgba(0,0,0,.2)}.plant-icon{font-size:24px;line-height:1;margin-bottom:2px}.plant-name{font-size:10px;font-weight:800;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;margin-bottom:1px}.plant-phase{font-size:8px;color:#6b7280;margin-bottom:1px}.land-cell.mutant-dark .plant-name,.land-cell.mutant-dark .plant-phase{color:#f9fafb}.mutant-tags{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:1px}.mutant-type-tag{font-size:8px;font-weight:700;padding:1px 4px;border-radius:4px;background:rgba(0,0,0,.1);color:#374151}.land-cell.mutant-dark .mutant-type-tag{background:rgba(255,255,255,.2);color:#f9fafb}.details{display:grid;gap:10px}.detail-row{border-bottom:1px solid #f3f4f6;padding:10px 0}.detail-row:last-child{border-bottom:0}.detail-title{display:flex;align-items:center;gap:8px;font-weight:800}.detail-text{margin-top:6px;color:#6b7280;font-size:13px}.empty{padding:36px;text-align:center;color:#6b7280;background:#fff;border:1px dashed #d1d5db;border-radius:12px}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.help{font-size:13px;color:#4b5563;line-height:1.6}.status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}@media(max-width:760px){.page{padding:14px}.top{display:block}.actions{margin-top:12px}.summary,.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.people{grid-template-columns:1fr}.land-grid{gap:6px}.plant-icon{font-size:20px}}
   </style>
 </head>
 <body>
   <main class="page">
     <div class="top">
       <div class="title">
-        <h1>农场变异代理监控</h1>
-        <p>仅解析 VisitService.Enter 好友土地信息，展示 24 块土地和作物变异。</p>
+        <h1>农场信息解析</h1>
+        <p>解析农场土地信息，展示 24 块土地和作物变异。</p>
       </div>
       <div class="actions">
-        <button class="btn" id="proxyToggle" onclick="toggleProxy()">🚀 开启代理</button>
+        <button class="btn" id="proxyToggle" onclick="toggleProxy()">🚀 开始解析</button>
         <a class="btn" href="/ca.cer" download>📄 下载证书</a>
-        <a class="btn primary" href="/index.html">手动 HEX 解析</a>
+        <button class="btn" onclick="showHelp()">📖 使用说明</button>
       </div>
     </div>
 
     <section class="status-grid">
       <div class="summary-card"><div class="label">HTTP 页面</div><div class="value mono" id="httpAddr">--</div></div>
-      <div class="summary-card"><div class="label">代理端口</div><div class="value mono" id="proxyAddr">--</div></div>
-      <div class="summary-card"><div class="label">目标连接</div><div class="value" id="connections">0</div></div>
-      <div class="summary-card"><div class="label">已解析帧</div><div class="value" id="frames">0</div></div>
-    </section>
-
-    <section class="status-grid">
-      <div class="summary-card"><div class="label">HTTP 页面</div><div class="value mono" id="httpAddr">--</div></div>
-      <div class="summary-card"><div class="label">代理地址</div><div class="value mono" id="proxyAddr">--</div></div>
+      <div class="summary-card"><div class="label">解析端口</div><div class="value mono" id="proxyAddr">--</div></div>
       <div class="summary-card"><div class="label">目标连接</div><div class="value" id="connections">0</div></div>
       <div class="summary-card"><div class="label">解析帧</div><div class="value" id="frames">0/0</div></div>
     </section>
 
     <section class="panel">
       <div class="section">
-        <div class="help">⚠️ 如遇网络异常，请关闭代理并重启程序后再尝试。</div>
+        <div class="help">⚠️ 如遇网络异常，请结束解析并重启程序后再尝试。</div>
       </div>
     </section>
 
     <section id="result">
       <div class="empty">等待农场 WebSocket 数据...</div>
     </section>
+
+    <footer id="extraInfo" class="extra-info" style="display: none;">
+      <div id="extraContent"></div>
+    </footer>
+
+    <div id="helpModal" class="modal" style="display: none;">
+      <div class="modal-overlay" onclick="closeHelp()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📖 使用说明</h2>
+          <button class="modal-close" onclick="closeHelp()">✕</button>
+        </div>
+        <div class="modal-body" id="helpContent">加载中...</div>
+        <div class="modal-footer">
+          <button class="btn primary" onclick="closeHelp()">知道了</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -68,10 +79,10 @@
         if (data.success) {
           isProxyActive = enable;
           if (enable) {
-            btn.textContent = '⏹️ 关闭代理';
+            btn.textContent = '⏹️ 结束解析';
             btn.classList.add('active');
           } else {
-            btn.textContent = '🚀 开启代理';
+            btn.textContent = '🚀 开始解析';
             btn.classList.remove('active');
           }
         } else {
@@ -81,6 +92,23 @@
         alert('操作失败：' + err.message);
       } finally {
         btn.disabled = false;
+      }
+    }
+
+    async function verifyProxyStatus(expectedEnable) {
+      try {
+        await fetch('/api/proxy/refresh');
+        const res = await fetch('/api/proxy/status');
+        const data = await res.json();
+        if (data.proxyEnabled !== expectedEnable) {
+          if (expectedEnable) {
+            alert('⚠️ 代理可能未完全生效，请手动检查代理设置：「设置-网络与Internet-代理-手动设置代理」');
+          } else {
+            alert('⚠️ 代理可能未完全关闭，请手动检查代理设置：「设置-网络与Internet-代理-手动设置代理」');
+          }
+        }
+      } catch {
+        // 忽略验证失败
       }
     }
 
@@ -190,14 +218,14 @@
 
     function renderFarmEvent(event) {
       const badgeClass = event.mutantCount > 0 ? 'warn' : 'ok';
+      const ownerName = event.isOwnFarm ? '我的农场' : escapeHtml(event.friendInfo?.name || '未知');
       resultEl.innerHTML = `<section class="panel">
         <div class="panel-head">
-          <div class="panel-title">解析结果</div>
+          <div class="panel-title">${event.isOwnFarm ? '我的农场' : '解析结果'}</div>
           <span class="badge ${badgeClass}">${event.mutantCount > 0 ? `发现 ${event.mutantCount} 个变异` : '解析成功'}</span>
         </div>
         <div class="summary">
-          <div class="summary-card"><div class="label">好友</div><div class="value">${escapeHtml(event.friendInfo?.name || '未知')}</div></div>
-          <div class="summary-card"><div class="label">好友 GID</div><div class="value">${escapeHtml(event.friendInfo?.gid || '-')}</div></div>
+          <div class="summary-card"><div class="label">${event.isOwnFarm ? '我的农场' : '好友'}</div><div class="value">${ownerName}</div></div>
           <div class="summary-card"><div class="label">土地数</div><div class="value">${event.landCount || 0}</div></div>
         </div>
         <div class="section">
@@ -245,9 +273,82 @@
       refreshStatus().catch(() => {});
     };
 
+    function parseMarkdown(text) {
+      return String(text || '')
+        .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/<li><\/li>/g, '')
+        .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+        .replace(/^<\/p>/gm, '')
+        .replace(/<p>$/gm, '')
+        .replace(/<\/p><p>/g, '</p>\n<p>')
+        .trim();
+    }
+
+    async function showHelp() {
+      const modal = document.getElementById('helpModal');
+      const content = document.getElementById('helpContent');
+      modal.style.display = 'flex';
+      try {
+        const res = await fetch('/README.use.md');
+        const mdText = await res.text();
+        content.innerHTML = '<p>' + parseMarkdown(mdText) + '</p>';
+      } catch {
+        content.textContent = '加载帮助文档失败';
+      }
+    }
+
+    function closeHelp() {
+      const modal = document.getElementById('helpModal');
+      modal.style.display = 'none';
+      localStorage.setItem('helpShown', 'true');
+    }
+
+    async function loadExtraInfo() {
+      try {
+        const res = await fetch('/api/about', {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/plain',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        if (!res.ok) {
+          console.log('About info fetch failed:', res.status);
+          return;
+        }
+        const text = await res.text();
+        const trimmed = text.trim();
+        console.log('About info loaded:', trimmed.length, 'chars');
+        if (trimmed && trimmed.length > 0) {
+          document.getElementById('extraContent').textContent = trimmed;
+          document.getElementById('extraInfo').style.display = 'block';
+        }
+      } catch (err) {
+        console.log('About info fetch error:', err.message);
+      }
+    }
+
     loadHistory().catch(() => {});
     refreshStatus().catch(() => {});
+    loadExtraInfo().catch(() => {});
     setInterval(() => refreshStatus().catch(() => {}), 3000);
+
+    if (!localStorage.getItem('helpShown')) {
+      localStorage.setItem('helpShown', 'true');
+      setTimeout(() => showHelp(), 800);
+    }
+
+    function resetHelp() {
+      localStorage.removeItem('helpShown');
+      alert('下次刷新页面将重新显示使用说明');
+    }
   </script>
 </body>
 </html>
