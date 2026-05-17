@@ -399,6 +399,7 @@ function normalizeLand(land) {
             mutantConfigIds: (getField(plant, 'mutant_config_ids', 'mutantConfigIds', []) || []).map(toNumber),
             phases: (plant.phases || []).map(phase => ({
                 phase: toNumber(phase.phase),
+                beginTime: toNumber(getField(phase, 'begin_time', 'beginTime', 0)),
                 mutants: (phase.mutants || []).map(mutant => ({
                     mutantTime: toNumber(getField(mutant, 'mutant_time', 'mutantTime', 0)),
                     mutantConfigId: toNumber(getField(mutant, 'mutant_config_id', 'mutantConfigId', 0)),
@@ -596,12 +597,12 @@ function startProxy() {
     });
 
     proxy.listen({
-        host: '127.0.0.1',
+        host: '0.0.0.0',
         port: PROXY_PORT,
         sslCaDir: CERT_DIR
     }, () => {
         state.proxyReady = true;
-        console.log(`代理服务已启动: 127.0.0.1:${PROXY_PORT}`);
+        console.log(`代理服务已启动: 0.0.0.0:${PROXY_PORT}`);
         console.log(`目标主机: ${TARGET_HOST}${TARGET_PATH_PREFIX}`);
         console.log(`证书目录: ${CERT_DIR}`);
         console.log('注意：仅目标主机的指定会被监听，其他网站直接透传');

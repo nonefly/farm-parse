@@ -123,6 +123,35 @@
       7: '枯死'
     };
 
+    function getCurrentPhase(plant) {
+      if (!plant || !plant.phases || plant.phases.length === 0) return 0;
+      
+      const now = Math.floor(Date.now() / 1000);
+      const phases = plant.phases;
+      
+      for (let i = 0; i < phases.length; i++) {
+        const current = phases[i];
+        const next = phases[i + 1];
+        
+        const beginTime = current.beginTime || 0;
+        const nextBeginTime = next ? (next.beginTime || 0) : 0;
+        
+        if (beginTime > 0 && beginTime <= now) {
+          if (nextBeginTime > 0) {
+            if (now < nextBeginTime) {
+              return current.phase;
+            }
+          } else {
+            if (i === phases.length - 1) {
+              return current.phase;
+            }
+          }
+        }
+      }
+      
+      return phases[phases.length - 1].phase;
+    }
+
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;',
@@ -172,7 +201,7 @@
               : isMutant
                 ? `land-cell mutant ${primaryClass}`
                 : 'land-cell unlocked';
-          const phase = plant?.phases?.[plant.phases.length - 1]?.phase || 0;
+          const phase = getCurrentPhase(plant);
           const tags = [];
           for (const detail of mutant?.details || []) {
             if (tags.includes(detail.type)) continue;
