@@ -28,3 +28,5 @@ Thumbs.db
 
 # 测试文件
 test-auth.js
+.vercel
+.env*.local
