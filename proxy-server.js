@@ -542,10 +542,26 @@ function isTargetWebSocket(ctx) {
 function startProxy() {
     if (proxyStarted) return;
     proxyStarted = true;
+    
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = function(chunk, encoding, callback) {
+        const message = String(chunk);
+        if (message.includes('starting server for') || message.includes('https server started for')) {
+            if (typeof callback === 'function') {
+                callback();
+            }
+            return true;
+        }
+        return originalStdoutWrite(chunk, encoding, callback);
+    };
+    
     const proxy = new Proxy();
 
     proxy.onError((ctx, err, kind) => {
         if (kind === 'request' || kind === 'websocket') {
+            return;
+        }
+        if (err.code === 'ERR_SSL_NO_APPLICATION_PROTOCOL') {
             return;
         }
         if (ctx?.farmParseTarget) {
@@ -599,7 +615,8 @@ function startProxy() {
     proxy.listen({
         host: '0.0.0.0',
         port: PROXY_PORT,
-        sslCaDir: CERT_DIR
+        sslCaDir: CERT_DIR,
+        silent: true
     }, () => {
         state.proxyReady = true;
         console.log(`代理服务已启动: 0.0.0.0:${PROXY_PORT}`);
@@ -833,7 +850,7 @@ function startHttp() {
         console.log('Farm Parse 服务已启动');
         console.log('========================================');
         console.log(`本地访问: http://127.0.0.1:${HTTP_PORT}${authUrl}`);
-        for (const address of addresses) {
+        for (const address of getLocalAddresses()) {
             console.log(`局域网访问: http://${address}:${HTTP_PORT}${authUrl}`);
         }
         console.log('========================================');

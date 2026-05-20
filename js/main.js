@@ -471,11 +471,17 @@ function decodeLandsFromBody(meta, bodyData) {
     const serviceName = meta?.service_name || '';
     const methodName = meta?.method_name || '';
 
-    if (!serviceName.includes('VisitService') || !methodName.includes('Enter')) {
-        throw new Error('仅支持 VisitService.Enter 好友土地信息');
+    // 支持 VisitService.Enter 消息（好友土地）
+    if (serviceName.includes('VisitService') && methodName.includes('Enter')) {
+        return decodeEnterReply(new ProtoReader(bodyData));
+    }
+    
+    // 支持 PlantService.AllLands 消息（自己的土地）
+    if (serviceName.includes('PlantService') && methodName.includes('AllLands')) {
+        return decodeFarmLandList(new ProtoReader(bodyData));
     }
 
-    return decodeEnterReply(new ProtoReader(bodyData));
+    throw new Error('仅支持 VisitService.Enter 好友土地信息和 PlantService.AllLands 自己的土地信息');
 }
 
 function extractMutants(lands) {
@@ -777,7 +783,7 @@ function decodeBasicInfo(reader) {
             case 1: basic.gid = reader.readVarint(); break;
             case 2: basic.name = reader.readString(); break;
             case 3: basic.avatar = reader.readVarint(); break;
-            case 4: reader.skipField(wireType); break;
+            case 4: basic.level = reader.readVarint(); break;
             case 6: basic.gold = reader.readVarint(); break;
             case 7: basic.diamond = reader.readVarint(); break;
             case 10: basic.landCount = reader.readVarint(); break;
@@ -851,6 +857,7 @@ function renderResults(data) {
     const lands = [...(data.lands || [])].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
     const mutants = extractMutants(lands);
     const meta = data.meta || {};
+    const isSelfLand = meta?.service_name?.includes('PlantService') || meta?.serviceName?.includes('PlantService');
 
     container.style.display = 'block';
     status.className = mutants.length > 0
@@ -858,8 +865,37 @@ function renderResults(data) {
         : 'px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700';
     status.textContent = mutants.length > 0 ? `发现 ${mutants.length} 个变异` : '解析成功';
 
-    let html = `
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 sm:p-6 border-b border-gray-100">
+    let summaryHtml = '';
+    let peopleHtml = '';
+    
+    if (isSelfLand) {
+        // 自己的土地信息
+        summaryHtml = `
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">土地类型</div>
+                <div class="text-sm font-semibold text-gray-700">自己的土地</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">服务</div>
+                <div class="text-sm font-semibold text-gray-700">${escapeHtml(meta.service_name || meta.serviceName || 'PlantService')}</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">方法</div>
+                <div class="text-sm font-semibold text-gray-700">${escapeHtml(meta.method_name || meta.methodName || 'AllLands')}</div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">土地数</div>
+                <div class="text-sm font-semibold text-gray-700">${lands.length}</div>
+            </div>
+        `;
+        peopleHtml = renderPersonCard('当前用户', data.currentUser);
+    } else {
+        // 好友土地信息
+        summaryHtml = `
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500 mb-1">土地类型</div>
+                <div class="text-sm font-semibold text-gray-700">好友土地</div>
+            </div>
             <div class="bg-gray-50 rounded-lg p-3 text-center">
                 <div class="text-xs text-gray-500 mb-1">好友</div>
                 <div class="text-sm font-semibold text-gray-700">${escapeHtml(data.friendInfo?.name || '未知')}</div>
@@ -872,18 +908,23 @@ function renderResults(data) {
                 <div class="text-xs text-gray-500 mb-1">好友等级</div>
                 <div class="text-sm font-semibold text-gray-700">Lv.${data.friendInfo?.level || 0}</div>
             </div>
-            <div class="bg-gray-50 rounded-lg p-3 text-center">
-                <div class="text-xs text-gray-500 mb-1">土地数</div>
-                <div class="text-sm font-semibold text-gray-700">${lands.length}</div>
-            </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4 p-4 sm:p-6 border-b border-gray-100">
+        `;
+        peopleHtml = `
             ${renderPersonCard('当前用户', data.currentUser)}
             ${renderPersonCard('好友', data.friendInfo)}
+        `;
+    }
+
+    let html = `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 sm:p-6 border-b border-gray-100">
+            ${summaryHtml}
+        </div>
+        <div class="grid grid-cols-2 gap-4 p-4 sm:p-6 border-b border-gray-100">
+            ${peopleHtml}
         </div>
         <div class="p-4 sm:p-6">
             <h3 class="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2">
-                <span>🌾</span> 农场土地 (4x6)
+                <span>🌾</span> 农场土地 (4x6) - ${isSelfLand ? '自己的土地' : '好友土地'}
             </h3>
             <div class="land-grid">
     `;
