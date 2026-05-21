@@ -18,8 +18,6 @@ npm start
 ```powershell
 npm install
 npm run build:win
-npm run vercel:dev
-npx vercel dev
 ```
 
 打包完成后，在 `dist` 目录找到 `farm-parse.exe`。
