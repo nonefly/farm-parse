@@ -20,6 +20,9 @@ const APP_DATA_DIR = IS_PACKAGED ? path.join(os.homedir(), '.farm-parse') : path
 const CERT_DIR = path.join(APP_DATA_DIR, 'proxy-certs');
 const CA_FILE = path.join(CERT_DIR, 'certs', 'ca.pem');
 
+const IS_WINDOWS = os.platform() === 'win32';
+const IS_MAC = os.platform() === 'darwin';
+
 const state = {
     startedAt: new Date().toISOString(),
     protoReady: false,
@@ -39,59 +42,89 @@ const state = {
 
 function setSystemProxy(enable) {
     try {
-        if (enable) {
-            const currentSettings = getCurrentProxySettings();
-            state.originalProxySettings = currentSettings;
-            
-            const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
-            
-            execSync(`reg add "${regPath}" /v ProxyEnable /t REG_DWORD /d 1 /f`);
-            execSync(`reg add "${regPath}" /v ProxyServer /t REG_SZ /d "127.0.0.1:${PROXY_PORT}" /f`);
-            execSync(`reg add "${regPath}" /v ProxyOverride /t REG_SZ /d "localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>" /f`);
-            
-            try {
-                execSync('netsh winhttp reset proxy');
-            } catch {}
-            try {
-                execSync(`netsh winhttp set proxy proxy-server="127.0.0.1:${PROXY_PORT}" bypass-list="${TARGET_HOST};localhost"`);
-            } catch {}
-            
-            return { success: true, message: '系统代理已开启，请确保已安装根证书' };
+        if (IS_WINDOWS) {
+            return setWindowsProxy(enable);
+        } else if (IS_MAC) {
+            return setMacProxy(enable);
         } else {
-            const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
-            
-            if (state.originalProxySettings) {
-                try {
-                    execSync(`reg add "${regPath}" /v ProxyEnable /t REG_DWORD /d ${state.originalProxySettings.enable ? 1 : 0} /f`);
-                } catch {}
-                if (state.originalProxySettings.server) {
-                    try {
-                        execSync(`reg add "${regPath}" /v ProxyServer /t REG_SZ /d "${state.originalProxySettings.server}" /f`);
-                    } catch {}
-                }
-                if (state.originalProxySettings.override) {
-                    try {
-                        execSync(`reg add "${regPath}" /v ProxyOverride /t REG_SZ /d "${state.originalProxySettings.override}" /f`);
-                    } catch {}
-                }
-            } else {
-                try {
-                    execSync(`reg add "${regPath}" /v ProxyEnable /t REG_DWORD /d 0 /f`);
-                } catch {}
-            }
-            
-            try {
-                execSync('netsh winhttp reset proxy');
-            } catch {}
-            
-            return { success: true, message: '系统代理已关闭' };
+            return { success: false, message: '仅支持 Windows 和 macOS 系统' };
         }
     } catch (error) {
         return { success: false, message: `代理设置失败: ${error.message}` };
     }
 }
 
+function setWindowsProxy(enable) {
+    const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
+    
+    execSync(`reg add "${regPath}" /v ProxyEnable /t REG_DWORD /d ${enable ? 1 : 0} /f`);
+    
+    if (enable) {
+        execSync(`reg add "${regPath}" /v ProxyServer /t REG_SZ /d "127.0.0.1:${PROXY_PORT}" /f`);
+        execSync(`reg add "${regPath}" /v ProxyOverride /t REG_SZ /d "localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>" /f`);
+    }
+    
+    try {
+        execSync('netsh winhttp reset proxy');
+    } catch {}
+    try {
+        execSync(`netsh winhttp set proxy proxy-server="127.0.0.1:${PROXY_PORT}" bypass-list="${TARGET_HOST};localhost"`);
+    } catch {}
+    
+    return { success: true, message: enable ? '系统代理已开启，请确保已安装根证书' : '系统代理已关闭' };
+}
+
+function setMacProxy(enable) {
+    const networks = getMacNetworkInterfaces();
+    
+    if (networks.length === 0) {
+        return { success: false, message: '未找到可用的网络接口' };
+    }
+    
+    for (const network of networks) {
+        try {
+            if (enable) {
+                execSync(`networksetup -setwebproxy "${network}" 127.0.0.1 ${PROXY_PORT}`, { timeout: 5000 });
+                execSync(`networksetup -setsecurewebproxy "${network}" 127.0.0.1 ${PROXY_PORT}`, { timeout: 5000 });
+            } else {
+                execSync(`networksetup -setwebproxystate "${network}" off`, { timeout: 5000 });
+                execSync(`networksetup -setsecurewebproxystate "${network}" off`, { timeout: 5000 });
+            }
+        } catch (err) {
+            console.error(`设置网络 ${network} 代理失败:`, err.message);
+        }
+    }
+    
+    return { 
+        success: true, 
+        message: enable 
+            ? `系统代理已开启 (${networks.join(', ')})，请确保已安装根证书` 
+            : '系统代理已关闭' 
+    };
+}
+
+function getMacNetworkInterfaces() {
+    try {
+        const output = execSync('networksetup -listallnetworkservices', { encoding: 'utf8' });
+        return output.split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.includes('*'))
+            .filter(line => !/Thunderbolt|Bluetooth|VirtualBox|VMware/i.test(line));
+    } catch {
+        return [];
+    }
+}
+
 function getCurrentProxySettings() {
+    if (IS_WINDOWS) {
+        return getWindowsProxySettings();
+    } else if (IS_MAC) {
+        return getMacProxySettings();
+    }
+    return { enable: false, server: '', override: '' };
+}
+
+function getWindowsProxySettings() {
     const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
     try {
         const enableOutput = execSync(`reg query "${regPath}" /v ProxyEnable 2>&1 || echo ERROR`).toString();
@@ -112,12 +145,39 @@ function getCurrentProxySettings() {
     }
 }
 
-function refreshIEProxy() {
+function getMacProxySettings() {
+    const networks = getMacNetworkInterfaces();
+    if (networks.length === 0) {
+        return { enable: false, server: '', override: '' };
+    }
+    
     try {
-        execSync('powershell -Command "Start-Process iexplore.exe -ArgumentList \'-k\' -WindowStyle Hidden; Start-Sleep -Milliseconds 500; Get-Process iexplore | Stop-Process -Force"', { timeout: 5000 });
+        const output = execSync(`networksetup -getwebproxy "${networks[0]}"`, { encoding: 'utf8' });
+        const enabledMatch = output.match(/Enabled:\s*(Yes|No)/i);
+        const serverMatch = output.match(/Server:\s*(.+)/i);
+        const portMatch = output.match(/Port:\s*(\d+)/i);
+        
+        const enabled = enabledMatch && enabledMatch[1].toLowerCase() === 'yes';
+        const server = serverMatch ? `${serverMatch[1].trim()}:${portMatch ? portMatch[1] : ''}` : '';
+        
+        return { enable: enabled, server: server.trim(), override: '' };
     } catch {
+        return { enable: false, server: '', override: '' };
+    }
+}
+
+function refreshIEProxy() {
+    if (IS_WINDOWS) {
         try {
-            execSync('powershell -Command "[System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebProxy]::new()"', { timeout: 3000 });
+            execSync('powershell -Command "Start-Process iexplore.exe -ArgumentList \'-k\' -WindowStyle Hidden; Start-Sleep -Milliseconds 500; Get-Process iexplore | Stop-Process -Force"', { timeout: 5000 });
+        } catch {
+            try {
+                execSync('powershell -Command "[System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebProxy]::new()"', { timeout: 3000 });
+            } catch {}
+        }
+    } else if (IS_MAC) {
+        try {
+            execSync(`networksetup -setwebproxystate "Wi-Fi" off && networksetup -setwebproxystate "Wi-Fi" on`, { timeout: 5000 });
         } catch {}
     }
 }
@@ -223,11 +283,13 @@ function cleanWmicValue(output, header) {
 }
 
 async function getWmicValue(alias, property) {
+    if (!IS_WINDOWS) return '';
     const output = await execFileText('wmic', [alias, 'get', property]);
     return cleanWmicValue(output, property);
 }
 
 async function getPowerShellValue(script) {
+    if (!IS_WINDOWS) return '';
     const output = await execFileText('powershell.exe', [
         '-NoProfile',
         '-ExecutionPolicy',
@@ -238,22 +300,36 @@ async function getPowerShellValue(script) {
     return String(output || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean)[0] || '';
 }
 
+async function getMacSerialNumber() {
+    try {
+        const output = await execFileText('system_profiler', ['SPHardwareDataType']);
+        const match = output.match(/Hardware UUID:\s*([A-F0-9-]+)/i);
+        return match ? match[1].trim().toUpperCase() : '';
+    } catch {
+        return '';
+    }
+}
+
 async function collectMachineInfo() {
     if (machineInfoCache) return machineInfoCache;
 
-    const boardUuidWmic = await getWmicValue('csproduct', 'UUID');
-    const boardUuid = boardUuidWmic || await getPowerShellValue('(Get-CimInstance Win32_ComputerSystemProduct).UUID');
+    let boardUuid = '';
 
-    const parts = {
-        boardUuid: normalizeText(boardUuid).toUpperCase()
-    };
+    if (IS_WINDOWS) {
+        const boardUuidWmic = await getWmicValue('csproduct', 'UUID');
+        boardUuid = boardUuidWmic || await getPowerShellValue('(Get-CimInstance Win32_ComputerSystemProduct).UUID');
+    } else if (IS_MAC) {
+        boardUuid = await getMacSerialNumber();
+    }
+
+    const normalizedUuid = normalizeText(boardUuid).toUpperCase();
     const fingerprint = [
         MACHINE_CODE_SALT,
-        parts.boardUuid
+        normalizedUuid
     ].join('|');
 
     machineInfoCache = {
-        ...parts,
+        boardUuid: normalizedUuid,
         machineCode: crypto.createHash('md5').update(fingerprint).digest('hex').toUpperCase()
     };
     return machineInfoCache;
@@ -542,26 +618,16 @@ function isTargetWebSocket(ctx) {
 function startProxy() {
     if (proxyStarted) return;
     proxyStarted = true;
-    
-    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
-    process.stdout.write = function(chunk, encoding, callback) {
-        const message = String(chunk);
-        if (message.includes('starting server for') || message.includes('https server started for')) {
-            if (typeof callback === 'function') {
-                callback();
-            }
-            return true;
-        }
-        return originalStdoutWrite(chunk, encoding, callback);
-    };
-    
     const proxy = new Proxy();
 
     proxy.onError((ctx, err, kind) => {
         if (kind === 'request' || kind === 'websocket') {
             return;
         }
-        if (err.code === 'ERR_SSL_NO_APPLICATION_PROTOCOL') {
+        const errMsg = err.message || '';
+        if (errMsg.includes('SSL alert number 46') || 
+            errMsg.includes('ssl/tls alert certificate unknown') || 
+            errMsg.includes('ERR_SSL_SSL/TLS_ALERT_CERTIFICATE_UNKNOWN')) {
             return;
         }
         if (ctx?.farmParseTarget) {
@@ -615,8 +681,7 @@ function startProxy() {
     proxy.listen({
         host: '0.0.0.0',
         port: PROXY_PORT,
-        sslCaDir: CERT_DIR,
-        silent: true
+        sslCaDir: CERT_DIR
     }, () => {
         state.proxyReady = true;
         console.log(`代理服务已启动: 0.0.0.0:${PROXY_PORT}`);
@@ -718,10 +783,22 @@ function startHttp() {
 
     app.get('/api/proxy/refresh', (_, res) => {
         try {
-            execSync('ipconfig /flushdns');
-            try {
-                execSync('netsh winhttp reset proxy');
-            } catch {}
+            if (IS_WINDOWS) {
+                execSync('ipconfig /flushdns');
+                try {
+                    execSync('netsh winhttp reset proxy');
+                } catch {}
+            } else if (IS_MAC) {
+                execSync('dscacheutil -flushcache');
+                try {
+                    const networks = getMacNetworkInterfaces();
+                    for (const network of networks) {
+                        try {
+                            execSync(`networksetup -setwebproxystate "${network}" off && networksetup -setwebproxystate "${network}" on`, { timeout: 3000 });
+                        } catch {}
+                    }
+                } catch {}
+            }
             res.json({ success: true, message: '网络设置已刷新' });
         } catch (error) {
             res.json({ success: false, message: `刷新失败: ${error.message}` });
@@ -744,6 +821,63 @@ function startHttp() {
             .catch(() => {
                 res.status(500).send('');
             });
+    });
+
+    app.get('/api/ios-profile.mobileconfig', (req, res) => {
+        const addresses = getLocalAddresses();
+        const host = addresses[0] || '127.0.0.1';
+        const payloadUUID = crypto.randomUUID();
+        const profileUUID = crypto.randomUUID();
+        
+        const profileContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>农场解析代理</string>
+            <key>PayloadIdentifier</key>
+            <string>com.farmparse.proxy</string>
+            <key>PayloadType</key>
+            <string>com.apple.Proxy</string>
+            <key>PayloadUUID</key>
+            <string>${payloadUUID}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>HTTPEnable</key>
+            <integer>1</integer>
+            <key>HTTPServer</key>
+            <string>${host}</string>
+            <key>HTTPPort</key>
+            <integer>${PROXY_PORT}</integer>
+            <key>HTTPSEnable</key>
+            <integer>1</integer>
+            <key>HTTPSServer</key>
+            <string>${host}</string>
+            <key>HTTPSPort</key>
+            <integer>${PROXY_PORT}</integer>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>农场解析代理配置</string>
+    <key>PayloadIdentifier</key>
+    <string>com.farmparse.profile</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>${profileUUID}</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+</dict>
+</plist>`;
+        
+        res.setHeader('Content-Type', 'application/x-apple-aspen-config');
+        res.setHeader('Content-Disposition', 'attachment; filename="farm-parse.mobileconfig"');
+        res.send(profileContent);
     });
 
     if (IS_PACKAGED) {
@@ -850,11 +984,16 @@ function startHttp() {
         console.log('Farm Parse 服务已启动');
         console.log('========================================');
         console.log(`本地访问: http://127.0.0.1:${HTTP_PORT}${authUrl}`);
-        for (const address of getLocalAddresses()) {
+        for (const address of addresses) {
             console.log(`局域网访问: http://${address}:${HTTP_PORT}${authUrl}`);
         }
         console.log('========================================');
         console.log('');
+        
+        setTimeout(() => {
+            console.log = function() {};
+            console.error = function() {};
+        }, 1000);
     });
 
 }

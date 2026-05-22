@@ -117,6 +117,13 @@
       <div class="summary-card"><div class="label">解析帧</div><div class="value" id="frames">0/0</div></div>
     </section>
 
+    <section class="panel" id="mobileGuide" style="display: none;">
+      <div class="section">
+        <h3 class="section-title">📱 手机配置指南</h3>
+        <div id="mobileGuideContent"></div>
+      </div>
+    </section>
+    
     <section class="panel">
       <div class="section">
         <div class="help">⚠️ 如遇网络异常，请结束解析并重启程序后再尝试。</div>
@@ -151,6 +158,8 @@
     const seen = new Set();
     let latestFarmEvent = null;
     let isProxyActive = false;
+    let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    let localAddress = '127.0.0.1';
 
     const mutationImageMap = {
       '哈哈': '/img/Mutation/haha.png',
@@ -384,14 +393,90 @@
       const res = await fetch('/api/status');
       const status = await res.json();
       const address = status.addresses && status.addresses[0] ? status.addresses[0] : '127.0.0.1';
+      localAddress = address;
       document.getElementById('httpAddr').textContent = `${address}:${status.httpPort}`;
       document.getElementById('proxyAddr').textContent = `${address}:${status.proxyPort}`;
       document.getElementById('connections').textContent = status.targetConnections;
       document.getElementById('frames').textContent = `${status.parsedFrames}/${status.totalFrames}`;
+      
+      const mobileProxyAddr = document.getElementById('mobileProxyAddr');
+      if (mobileProxyAddr) {
+        mobileProxyAddr.textContent = address;
+      }
+      
       if (latestFarmEvent && !latestFarmEvent.currentUser && status.currentUser) {
         latestFarmEvent.currentUser = status.currentUser;
         renderFarmEvent(latestFarmEvent);
       }
+      
+      updateIOSButtons();
+    }
+    
+    function updateIOSButtons() {
+      let iosContainer = document.getElementById('iosContainer');
+      if (isIOS && !iosContainer) {
+        const actionsDiv = document.querySelector('.actions');
+        const iosDiv = document.createElement('div');
+        iosDiv.id = 'iosContainer';
+        iosDiv.className = 'ios-section';
+        iosDiv.innerHTML = `
+          <button class="btn" onclick="showIOSConfig()">🍎 iOS配置</button>
+        `;
+        actionsDiv.appendChild(iosDiv);
+      }
+    }
+    
+    function showIOSConfig() {
+      const modal = document.getElementById('iosModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        return;
+      }
+      
+      const modalHTML = `
+        <div id="iosModal" class="modal">
+          <div class="modal-overlay" onclick="closeIOSModal()"></div>
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>🍎 iOS手机配置指南</h2>
+              <button class="modal-close" onclick="closeIOSModal()">✕</button>
+            </div>
+            <div class="modal-body">
+              <h3>第一步：下载证书</h3>
+              <p>点击下方按钮下载并安装CA证书（需要信任此证书）：</p>
+              <a class="btn primary" href="/ca.cer" download style="display:inline-block;margin:8px 0;text-decoration:none;">📄 下载证书</a>
+              
+              <h3 style="margin-top:16px;">第二步：一键配置代理</h3>
+              <p>点击下方按钮下载描述文件并安装：</p>
+              <a class="btn primary" href="/api/ios-profile.mobileconfig" style="display:inline-block;margin:8px 0;text-decoration:none;">📱 一键配置代理</a>
+              
+              <h3 style="margin-top:16px;">第三步：信任证书（重要）</h3>
+              <ol>
+                <li>打开「设置」→「通用」→「VPN与设备管理」</li>
+                <li>找到并点击「农场解析代理配置」，然后点击「安装」</li>
+                <li>打开「设置」→「通用」→「关于本机」→「证书信任设置」</li>
+                <li>找到「farm-parse」相关证书，开启信任</li>
+              </ol>
+              
+              <h3 style="margin-top:16px;">第四步：使用代理</h3>
+              <p>配置完成后，游戏流量会自动通过本服务器解析。</p>
+              <p class="help" style="margin-top:12px;background:#fef3c7;padding:12px;border-radius:8px;">
+                ⚠️ 使用完毕后，请在「设置」→「通用」→「VPN与设备管理」中删除描述文件，或在WiFi设置中关闭代理。
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button class="btn primary" onclick="closeIOSModal()">知道了</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      document.getElementById('iosModal').style.display = 'flex';
+    }
+    
+    function closeIOSModal() {
+      const modal = document.getElementById('iosModal');
+      if (modal) modal.style.display = 'none';
     }
 
     async function loadHistory() {
@@ -473,6 +558,45 @@
     if (!localStorage.getItem('helpShown')) {
       localStorage.setItem('helpShown', 'true');
       setTimeout(() => showHelp(), 800);
+    }
+    
+    showMobileGuide();
+    
+    function showMobileGuide() {
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile) {
+        const guideEl = document.getElementById('mobileGuide');
+        const contentEl = document.getElementById('mobileGuideContent');
+        guideEl.style.display = 'block';
+        
+        if (isIOS) {
+          contentEl.innerHTML = `
+            <p style="margin: 8px 0;line-height:1.6;">
+              🍎 检测到iOS设备，请点击顶部「<strong>iOS配置</strong>」按钮获取详细配置指南。
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+              <a class="btn" href="/ca.cer" download style="text-decoration:none;">📄 下载证书</a>
+              <a class="btn primary" href="/api/ios-profile.mobileconfig" style="text-decoration:none;">📱 一键配置</a>
+            </div>
+          `;
+        } else {
+          contentEl.innerHTML = `
+            <p style="margin: 8px 0;line-height:1.6;">
+              📱 检测到移动设备，请在WiFi设置中手动配置代理：
+            </p>
+            <ul style="margin:8px 0;padding-left:20px;line-height:1.8;">
+              <li><strong>服务器</strong>：<span id="mobileProxyAddr" class="mono">--</span></li>
+              <li><strong>端口</strong>：<span class="mono">8788</span></li>
+              <li><strong>证书</strong>：<a href="/ca.cer" download style="color:#16a34a;text-decoration:underline;">点击下载</a>并安装</li>
+            </ul>
+          `;
+        }
+      }
+    }
+
+    function resetHelp() {
+      localStorage.removeItem('helpShown');
+      alert('下次刷新页面将重新显示使用说明');
     }
   </script>
 </body>
