@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>农场代理 - 管理面板</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f0fdf4; color: #111827; }
+.page { max-width: 800px; margin: 0 auto; padding: 16px; }
+.card { background: #fff; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 16px; }
+h1 { font-size: 22px; color: #166534; margin: 0 0 16px; }
+h2 { font-size: 16px; color: #15803d; margin: 0 0 12px; }
+.btn { border: 1px solid #d1d5db; background: #fff; border-radius: 40px; padding: 8px 14px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:active { transform: scale(0.96); }
+.btn.primary { background: #16a34a; color: #fff; border-color: #16a34a; }
+.btn.danger { background: #ef4444; color: #fff; border-color: #ef4444; }
+.btn.small { padding: 4px 10px; font-size: 12px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+th { color: #475569; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+.badge { display: inline-block; border-radius: 40px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
+.badge.ok { background: #dcfce7; color: #166534; }
+.badge.warn { background: #fef3c7; color: #92400e; }
+.form-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+input { border: 1px solid #d1d5db; border-radius: 12px; padding: 8px 12px; font-size: 14px; flex: 1; min-width: 120px; }
+.msg { padding: 8px 12px; border-radius: 12px; font-size: 13px; margin: 8px 0; }
+.msg.success { background: #dcfce7; color: #166534; }
+.msg.error { background: #fef2f2; color: #991b1b; }
+.nav { display: flex; gap: 8px; margin-bottom: 16px; }
+.nav a { text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="nav">
+    <a class="btn" href="/proxy.html">← 监控页面</a>
+    <a class="btn" href="javascript:void(0)" onclick="logout()">退出登录</a>
+  </div>
+  <h1>🔧 管理面板</h1>
+  
+  <div class="card">
+    <h2>👤 用户管理</h2>
+    <div class="form-row">
+      <input type="text" id="newUsername" placeholder="用户名" maxlength="20">
+      <input type="password" id="newPassword" placeholder="密码">
+      <button class="btn primary" onclick="createUser()">创建用户</button>
+    </div>
+    <div id="msg"></div>
+    <table>
+      <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>代理端口</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody id="userList"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+var API_BASE = '';
+var token = localStorage.getItem('token');
+
+function checkAuth() {
+  if (!token) { window.location.href = '/proxy.html'; return null; }
+  return token;
+}
+
+function api(path, method, body) {
+  var opts = {
+    method: method || 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(API_BASE + path, opts).then(function(r) {
+    if (r.status === 401) { localStorage.removeItem('token'); window.location.href = '/proxy.html'; return null; }
+    return r.json();
+  });
+}
+
+function showMsg(text, type) {
+  var el = document.getElementById('msg');
+  el.innerHTML = '<div class="msg ' + type + '">' + text + '</div>';
+  setTimeout(function() { el.innerHTML = ''; }, 3000);
+}
+
+function loadUsers() {
+  api('/api/admin/users').then(function(users) {
+    if (!users) return;
+    var html = '';
+    for (var i = 0; i < users.length; i++) {
+      var u = users[i];
+      var enabled = u.enabled;
+      var isAdmin = u.role === 'admin';
+      var port = u.proxyPort ? u.proxyPort : '-';
+      html += '<tr>' +
+        '<td>' + u.id + '</td>' +
+        '<td><strong>' + u.username + '</strong></td>' +
+        '<td>' + (isAdmin ? '管理员' : '用户') + '</td>' +
+        '<td style="font-family:monospace;font-weight:700;">' + port + '</td>' +
+        '<td><span class="badge ' + (enabled ? 'ok' : 'warn') + '">' + (enabled ? '启用' : '禁用') + '</span></td>' +
+        '<td style="font-size:12px;color:#6b7280;">' + (u.createdAt || '-').slice(0, 10) + '</td>' +
+        '<td>' +
+          (!isAdmin ? '<button class="btn small ' + (enabled ? 'warn' : 'primary') + '" onclick="toggleUser(' + u.id + ')">' + (enabled ? '禁用' : '启用') + '</button> ' +
+          '<button class="btn small danger" onclick="deleteUser(' + u.id + ', \'' + u.username + '\')">删除</button>' : '') +
+        '</td></tr>';
+    }
+    document.getElementById('userList').innerHTML = html;
+  });
+}
+
+function createUser() {
+  var username = document.getElementById('newUsername').value.trim();
+  var password = document.getElementById('newPassword').value;
+  if (!username || !password) { showMsg('用户名和密码不能为空', 'error'); return; }
+  api('/api/admin/users', 'POST', { username: username, password: password }).then(function(r) {
+    if (!r) return;
+    if (r.error) { showMsg(r.error, 'error'); } else { showMsg('用户 ' + r.username + ' 创建成功', 'success'); document.getElementById('newUsername').value = ''; document.getElementById('newPassword').value = ''; loadUsers(); }
+  });
+}
+
+function toggleUser(id) {
+  api('/api/admin/users/' + id + '/toggle', 'PATCH').then(function(r) {
+    if (!r) return;
+    if (r.error) { showMsg(r.error, 'error'); } else { showMsg('用户 ' + r.username + ' ' + (r.enabled ? '已启用' : '已禁用'), 'success'); loadUsers(); }
+  });
+}
+
+function deleteUser(id, username) {
+  if (!confirm('确定删除用户 "' + username + '" 吗？')) return;
+  api('/api/admin/users/' + id, 'DELETE').then(function(r) {
+    if (!r) return;
+    if (r.error) { showMsg(r.error, 'error'); } else { showMsg('用户 ' + r.username + ' 已删除', 'success'); loadUsers(); }
+  });
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  window.location.href = '/proxy.html';
+}
+
+// 启动
+checkAuth();
+loadUsers();
+</script>
+</body>
+</html>

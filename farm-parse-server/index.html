@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手动HEX解析</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f0fdf4; color: #111827; }
+    .page { max-width: 880px; margin: 0 auto; padding: 16px; }
+    .top { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 22px; color: #166534; }
+    .hint { margin: 4px 0 0; color: #4b5563; font-size: 13px; }
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 16px; margin-bottom: 16px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn { border: 1px solid #d1d5db; background: #fff; color: #374151; border-radius: 10px; padding: 9px 12px; font-weight: 700; font-size: 14px; cursor: pointer; text-decoration: none; }
+    .btn.primary { background: #16a34a; color: #fff; border-color: #16a34a; }
+    .btn:active { transform: scale(0.98); }
+    label { display: block; color: #374151; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+    textarea { width: 100%; min-height: 130px; resize: vertical; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; outline: none; }
+    textarea:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+    .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; }
+    .toggle-title { font-size: 14px; font-weight: 800; color: #1f2937; }
+    .toggle-desc { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .toggle-switch { position: relative; width: 52px; height: 28px; background: #d1d5db; border-radius: 30px; cursor: pointer; transition: .2s; flex: 0 0 auto; }
+    .toggle-switch.active { background: #16a34a; }
+    .toggle-switch:after { content: ""; position: absolute; width: 24px; height: 24px; top: 2px; left: 2px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: .2s; }
+    .toggle-switch.active:after { left: 26px; }
+    #resultContainer { display: none; overflow: hidden; }
+    .result-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 12px; }
+    #resultStatus { border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; }
+    .bg-red-100 { background: #fee2e2; } .text-red-700 { color: #b91c1c; }
+    .bg-green-100 { background: #dcfce7; } .text-green-700 { color: #166534; }
+    .bg-gray-50 { background: #f9fafb; } .rounded-lg { border-radius: 12px; } .p-3 { padding: 12px; }
+    .grid { display: grid; } .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gap-4 { gap: 12px; }
+    .p-4 { padding: 16px; } .p-6, .sm\:p-6 { padding: 18px; } .border-b { border-bottom: 1px solid #f1f5f9; } .border-gray-100 { border-color: #f3f4f6; }
+    .mb-6 { margin-bottom: 16px; } .text-lg { font-size: 18px; } .font-bold { font-weight: 800; } .items-center { align-items: center; } .justify-between { justify-content: space-between; } .flex { display: flex; } .flex-wrap { flex-wrap: wrap; } .gap-2 { gap: 8px; }
+    .px-3 { padding-left: 12px; padding-right: 12px; } .py-1 { padding-top: 4px; padding-bottom: 4px; } .rounded-full { border-radius: 999px; }
+    .text-center { text-align: center; } .text-xs { font-size: 12px; } .text-sm { font-size: 13px; }
+    .text-gray-500 { color: #6b7280; } .text-gray-600 { color: #4b5563; } .text-gray-700 { color: #374151; }
+    .font-semibold { font-weight: 700; } .mb-1 { margin-bottom: 4px; } .mb-4 { margin-bottom: 12px; }
+    .land-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+    .land-cell { aspect-ratio: 1 / 1; border-radius: 12px; border: 1.5px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px 3px; overflow: hidden; position: relative; background: #fefce8; }
+    .land-cell.locked { background: #f3f4f6; color: #9ca3af; }
+    .land-cell.unlocked { background: #f0fdf4; border-color: #bbf7d0; }
+    .land-cell.mutant { box-shadow: 0 0 10px rgba(245,158,11,.45); }
+    .land-cell.mutant-ice { background: linear-gradient(145deg,#dbeafe,#bfdbfe); border-color: #3b82f6; }
+    .land-cell.mutant-love { background: linear-gradient(145deg,#fce7f3,#fbcfe8); border-color: #ec4899; }
+    .land-cell.mutant-dark { background: linear-gradient(145deg,#1e293b,#334155); border-color: #64748b; color: #fff; }
+    .land-cell.mutant-wet { background: linear-gradient(145deg,#d1fae5,#a7f3d0); border-color: #14b8a6; }
+    .land-cell.mutant-gold { background: linear-gradient(145deg,#fef3c7,#fde68a); border-color: #eab308; }
+    .land-cell.big-crop { border-color: #f97316; border-width: 2px; }
+    .land-no { position: absolute; top: 3px; left: 4px; font-size: 8px; font-weight: 800; }
+    .plant-name { font-size: 10px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .plant-icon { font-size: 22px; line-height: 1; }
+    .mutant-badge { position: absolute; top: -5px; right: -5px; background: #f97316; color: #fff; border-radius: 999px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+    .mutant-type-tag { font-size: 7px; font-weight: 700; padding: 1px 4px; border-radius: 999px; background: rgba(0,0,0,.1); }
+    .toast, .toast-msg { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(15,23,42,.95); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 10; }
+    @media (max-width: 520px) { .page { padding: 12px; } .land-grid { gap: 5px; } .plant-name { font-size: 8px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="top">
+      <div>
+        <h1>手动HEX解析</h1>
+        <p class="hint">用于临时粘贴农场协议 HEX 数据解析，不影响主监控页面。</p>
+      </div>
+      <a class="btn" href="/proxy.html">返回监控</a>
+    </div>
+
+    <section class="card">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-title">自动解析模式</div>
+          <div class="toggle-desc">开启后自动读取剪贴板并解析 HEX 数据</div>
+        </div>
+        <div class="toggle-switch" id="toggleSwitch"></div>
+      </div>
+      <form id="parseForm" onsubmit="handleParse(event)">
+        <label for="hex">HEX 数据</label>
+        <textarea id="hex" name="hex" placeholder="请输入农场协议HEX数据..."></textarea>
+        <div class="actions">
+          <button type="button" class="btn" id="pasteBtn" onclick="handlePaste()">粘贴</button>
+          <button type="submit" class="btn primary" id="parseBtn">解析数据</button>
+          <button type="button" class="btn" id="clearBtn" onclick="handleClear()">清空</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="resultContainer" class="card">
+      <div class="result-head">
+        <strong>解析结果</strong>
+        <span id="resultStatus"></span>
+      </div>
+      <div id="resultContent"></div>
+    </section>
+    <div id="toast" class="toast" style="display:none;"></div>
+  </main>
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package gamepb.notifypb;
+
+message NotifyInfo {
+    int64 id = 1;
+    int64 type = 2;
+    string title = 3;
+    string content = 4;
+    int64 create_time = 5;
+    bool is_read = 6;
+    map<string, string> data = 7;
+}
+
+message NotifyListRequest {
+    int64 page = 1;
+    int64 page_size = 2;
+}
+
+message NotifyListReply {
+    repeated NotifyInfo notifies = 1;
+    int64 total = 2;
+}
+
+message MarkReadRequest {
+    repeated int64 ids = 1;
+}
+
+message MarkReadReply {
+    bool success = 1;
+}
+
+message DeleteNotifyRequest {
+    repeated int64 ids = 1;
+}
+
+message DeleteNotifyReply {
+    bool success = 1;
+}
