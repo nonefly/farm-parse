@@ -195,6 +195,7 @@ const MUTATION_TYPE_MAP = {
     5: { name: '黄金', icon: '✨', class: 'mutant-gold' },
     6: { name: '哈哈', icon: '🎃', class: 'mutant-pumpkin' },
     7: { name: '塔塔', icon: '🏰', class: 'mutant-tower' },
+    10: { name: '绵绵', icon: '☁️', class: 'mutant-mianmian' },
     55: { name: '水晶', icon: '💎', class: 'mutant-crystal' },
     105: { name: '闪耀', icon: '⭐', class: 'mutant-shine' },
     337: { name: '幸运', icon: '🍀', class: 'mutant-lucky' },
