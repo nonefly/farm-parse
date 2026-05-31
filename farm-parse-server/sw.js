@@ -205,8 +205,11 @@ var CACHE_URLS = [
   '/img/plant/plant_Crop_1542_Seed.png',
   '/img/plant/plant_Crop_8001_Seed.png',
   '/img/plant/plant_Crop_9001_Seed.png',
+  '/img/plant/Happy_Candy_Seed.png',
+  '/img/plant/Cotton_Candy_Seed.png',
 
   // ── 黄金系列种子 ──
+  '/img/plant/Gold_Happy_Candy_Seed.png',
   '/img/plant/Gold_Crop_25_Seed.png',
   '/img/plant/Gold_Crop_46_Seed.png',
   '/img/plant/Gold_Crop_109_Seed.png',
@@ -235,6 +238,7 @@ var CACHE_URLS = [
   '/img/Mutation/golden.png',
   '/img/Mutation/haha.png',
   '/img/Mutation/love.png',
+  '/img/Mutation/mianmian.png',
   '/img/Mutation/moist.png',
   '/img/Mutation/tata.png'
 ];

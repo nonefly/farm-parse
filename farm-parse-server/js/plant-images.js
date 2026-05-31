@@ -151,7 +151,10 @@ var plantImageMap = {
   '宋梅': 'plant_Crop_172_Seed.png',
   '哈哈南瓜塔': 'plant_Crop_8001_Seed.png',
   '哈哈小南瓜': 'plant_Crop_9001_Seed.png',
+  '欢乐糖果': 'Happy_Candy_Seed.png',
+  '绵绵糖果': 'Cotton_Candy_Seed.png',
   // 黄金系列
+  '黄金·欢乐糖果': 'Gold_Happy_Candy_Seed.png',
   '黄金·风信子': 'Gold_Crop_112_Seed.png',
   '黄金·银杏树苗': 'Gold_Crop_25_Seed.png',
   '黄金·蔷薇': 'Gold_Crop_121_Seed.png',
