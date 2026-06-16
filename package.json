@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "description": "",
   "main": "proxy-server.js",
-  "bin": "proxy-server.js",
+  "bin": "start-all.js",
   "directories": {
     "lib": "lib"
   },
   "scripts": {
-    "start": "node proxy-server.js",
+    "start": "node start-all.js",
     "proxy": "node proxy-server.js",
     "maturity": "node maturity-server.js",
-    "check": "node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js",
+    "start:all": "node start-all.js",
+    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js",
     "build": "node build.js",
     "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v1.0.0.exe",
     "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v1.0.0"
@@ -41,6 +42,12 @@
     "pkg": "^5.8.0"
   },
   "pkg": {
+    "scripts": [
+      "start-all.js",
+      "proxy-server.js",
+      "maturity-server.js",
+      "lib/**/*.js"
+    ],
     "assets": [
       "auth.html",
       "index.html",
@@ -49,7 +56,6 @@
       "README.use.md",
       "README.maturity.md",
       "js/**/*.js",
-      "lib/**/*.js",
       "proto/**/*.proto",
       "data/**/*.json",
       "node_modules/sql.js/dist/sql-wasm.wasm"
