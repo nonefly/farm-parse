@@ -2,8 +2,7 @@ let selectedGid = null;
 let schedulerEnabled = true;
 
 function parseBase() {
-  const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
-  return `${protocol}//${location.hostname}:8787`;
+  return location.origin;
 }
 function openHome() { location.href = `${parseBase()}/`; }
 function openProxy() { location.href = `${parseBase()}/proxy.html`; }
