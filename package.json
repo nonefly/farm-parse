@@ -12,7 +12,7 @@
     "proxy": "node proxy-server.js",
     "maturity": "node maturity-server.js",
     "start:all": "node start-all.js",
-    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js",
+    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js && node --check js/maturity-core.js && node --check js/maturity-extra.js && node --check js/maturity-detail.js",
     "build": "node build.js",
     "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v1.0.0.exe",
     "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v1.0.0"
@@ -46,7 +46,10 @@
       "start-all.js",
       "proxy-server.js",
       "maturity-server.js",
-      "lib/**/*.js"
+      "lib/**/*.js",
+      "js/maturity-core.js",
+      "js/maturity-extra.js",
+      "js/maturity-detail.js"
     ],
     "assets": [
       "auth.html",
@@ -55,6 +58,7 @@
       "maturity.html",
       "README.use.md",
       "README.maturity.md",
+      "AI_CONTEXT.md",
       "js/**/*.js",
       "proto/**/*.proto",
       "data/**/*.json",
