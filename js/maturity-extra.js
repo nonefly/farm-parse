@@ -144,17 +144,18 @@ async function searchCropByName() {
       if (Number(land.has_plant) !== 1) continue;
       const name = String(land.plant_name || '');
       if (!name.toLowerCase().includes(q) && !String(land.plant_id || '').includes(q)) continue;
-      if (!maturityIsPickable(land, now)) continue;
+      const matureAt = Number(land.mature_at || 0);
+      if (!matureAt || matureAt <= now) continue;
+      if (Number(land.phase) === 7) continue;
 
       const key = String(friend.gid);
-      const matureAt = Number(land.mature_at || 0);
       if (!groups.has(key)) {
         groups.set(key, {
           friend,
           plantCounts: new Map(),
           landIds: [],
-          earliest: matureAt || 0,
-          pickableCount: 0,
+          earliest: matureAt,
+          upcomingCount: 0,
           totalLeft: 0,
           totalFruit: 0,
         });
@@ -162,7 +163,7 @@ async function searchCropByName() {
       const row = groups.get(key);
       row.plantCounts.set(name, (row.plantCounts.get(name) || 0) + 1);
       row.landIds.push(`#${land.land_id}`);
-      row.pickableCount += 1;
+      row.upcomingCount += 1;
       row.totalLeft += Number(land.left_fruit_num || 0);
       row.totalFruit += Number(land.fruit_num || 0);
       if (matureAt && (!row.earliest || matureAt < row.earliest)) row.earliest = matureAt;
@@ -171,8 +172,8 @@ async function searchCropByName() {
 
   const allRows = [...groups.values()].sort((a, b) => (a.earliest || 9999999999999) - (b.earliest || 9999999999999));
   const rows = allRows.slice(0, 10);
-  if (hint) hint.textContent = `仅展示成熟可摘，按成熟时间最近展示 ${rows.length}/${allRows.length} 个好友`;
-  body.innerHTML = rows.map(r => `<tr onclick="selectFriend('${maturityEsc(r.friend.gid)}')"><td>${friendNameCell(r.friend)}<br><span class="dim">${maturityEsc(r.friend.gid)}</span></td><td>${formatCropNames(r.plantCounts)}</td><td>${maturityEsc(r.landIds.join(', '))}</td><td>${maturityShortTime(r.earliest)}</td><td class="ready">${maturityFmtCountdown(r.earliest)}</td><td>${r.pickableCount}块 · ${r.totalLeft}/${r.totalFruit}</td></tr>`).join('') || '<tr><td colspan="6" class="dim">没有找到成熟可摘的该农作物</td></tr>';
+  if (hint) hint.textContent = `仅展示待成熟作物，按最近成熟时间展示 ${rows.length}/${allRows.length} 个好友`;
+  body.innerHTML = rows.map(r => `<tr onclick="selectFriend('${maturityEsc(r.friend.gid)}')"><td>${friendNameCell(r.friend)}<br><span class="dim">${maturityEsc(r.friend.gid)}</span></td><td>${formatCropNames(r.plantCounts)}</td><td>${maturityEsc(r.landIds.join(', '))}</td><td>${maturityShortTime(r.earliest)}</td><td>${maturityFmtCountdown(r.earliest)}</td><td>${r.upcomingCount}块 · ${r.totalLeft}/${r.totalFruit}</td></tr>`).join('') || '<tr><td colspan="6" class="dim">没有找到待成熟的该农作物</td></tr>';
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
