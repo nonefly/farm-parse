@@ -12,17 +12,16 @@
   <main class="page">
     <div class="top"><div><h1>好友成熟时间</h1><p>基于 farm-parse 抓包事件写入 SQLite；GID 是主键，名称仅展示。自动化只下发视觉点击命令，不发送游戏协议请求。</p></div><div class="nav-actions"><button class="btn" onclick="openHome()">🏠 主页</button><button class="btn" onclick="openProxy()">📡 抓包解析</button><button class="btn" onclick="refreshAll()">刷新</button><button class="btn primary" id="schedulerBtn" onclick="toggleScheduler()">调度状态</button></div></div>
     <section class="grid"><div class="card"><div class="label">事件流</div><div class="value" id="streamState">--</div></div><div class="card"><div class="label">好友数</div><div class="value" id="friendCount">0</div></div><div class="card"><div class="label">活跃任务</div><div class="value" id="taskCount">0</div></div><div class="card"><div class="label">最近好友</div><div class="value" id="lastFriend" style="font-size:14px">--</div></div></section>
-
     <section class="search-grid">
       <div class="search-box"><h3>好友名称模糊搜索</h3><div class="search-row"><input id="friendNameSearch" placeholder="输入好友名称或 GID"><button class="btn" onclick="document.getElementById('friendNameSearch').value='';applyFriendNameSearch();">清空</button></div><p class="dim" id="friendNameSearchHint">等待数据...</p><div class="table-wrap"><table><thead><tr><th>好友</th><th>GID</th><th>作物</th><th>可摘</th><th>最近成熟</th><th>倒计时</th><th>最近抓包</th></tr></thead><tbody id="friendNameSearchBody"><tr><td colspan="7" class="dim">等待数据...</td></tr></tbody></table></div></div>
       <div class="search-box"><h3>农作物名称搜索</h3><div class="search-row"><input id="cropNameSearch" placeholder="输入农作物名称，如萝卜/玉米"><button class="btn blue" onclick="searchCropByName()">搜索作物</button></div><p class="dim" id="cropNameSearchHint">输入农作物名称后搜索；同好友同作物展示最早成熟时间。</p><div class="table-wrap"><table><thead><tr><th>好友</th><th>GID</th><th>作物</th><th>地块数</th><th>地块</th><th>最早成熟</th><th>倒计时</th><th>可摘/成熟</th></tr></thead><tbody id="cropNameSearchBody"><tr><td colspan="8" class="dim">输入农作物名称后搜索</td></tr></tbody></table></div></div>
     </section>
-
     <section class="panel" id="tasks"><div class="panel-head"><div class="panel-title">即将成熟 / 待摘取任务</div><span class="pill" id="taskHint">--</span></div><div class="table-wrap"><table><thead><tr><th>状态</th><th>好友</th><th>GID</th><th>土地</th><th>作物</th><th>成熟时间</th><th>倒计时</th><th>操作</th></tr></thead><tbody id="tasksBody"></tbody></table></div></section>
     <section class="panel"><div class="panel-head"><div class="panel-title">好友列表</div><span class="pill">点击好友查看土地</span></div><div class="table-wrap"><table><thead><tr><th>好友</th><th>GID</th><th>土地</th><th>作物</th><th>可摘</th><th>已成熟</th><th>下次成熟</th><th>倒计时</th><th>最近抓包</th></tr></thead><tbody id="friendsBody"></tbody></table></div></section>
     <section class="panel" id="landsPanel" style="display:none"><div class="panel-head"><div class="panel-title" id="landsTitle">土地</div><span class="pill" id="profileHint">未记录点击位置</span></div><div class="land-grid" id="landsGrid"></div></section>
     <section class="panel"><div class="panel-head"><div class="panel-title">自动化日志</div><button class="btn" onclick="loadLogs()">刷新日志</button></div><div class="log" id="logs">--</div></section>
   </main>
+  <script src="/js/maturity-api-fallback.js"></script>
   <script src="/js/maturity-core.js"></script>
   <script src="/js/maturity-extra.js"></script>
   <script src="/js/maturity-detail.js"></script>
