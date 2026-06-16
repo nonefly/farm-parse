@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const path = require('path');
@@ -24,6 +25,15 @@ const state = {
 
 function safeJson(value, fallback = {}) {
   try { return JSON.parse(value || '{}'); } catch { return fallback; }
+}
+
+function isMaturePickable(land, nowMs = Date.now()) {
+  const matureAt = Number(land?.mature_at || 0);
+  return Number(land?.has_plant) === 1
+    && matureAt > 0
+    && matureAt <= nowMs
+    && Number(land?.stealable) === 1
+    && Number(land?.left_fruit_num || 0) > 0;
 }
 
 function connectFarmParseStream() {
@@ -127,8 +137,25 @@ function proxyToFarmParse(req, res) {
   req.pipe(proxyReq);
 }
 
+function sendProxyHtmlWithFixes(res) {
+  const file = path.join(__dirname, 'proxy.html');
+  let html = fs.readFileSync(file, 'utf8');
+  const scriptTag = '<script src="/js/proxy-page-fixes.js"></script>';
+  if (!html.includes(scriptTag)) html = html.replace('</body>', `  ${scriptTag}\n</body>`);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+}
+
 function startHttpServer() {
   const app = express();
+
+  app.use('/api/maturity', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    next();
+  });
   app.use('/api/maturity', express.json({ limit: '1mb' }));
 
   app.get('/api/maturity/status', (_, res) => {
@@ -141,7 +168,15 @@ function startHttpServer() {
     });
   });
   app.post('/api/maturity/scheduler/toggle', (req, res) => { state.schedulerEnabled = req.body?.enabled === true; res.json({ enabled: state.schedulerEnabled }); });
-  app.get('/api/maturity/friends', (_, res) => res.json(farmDb.listFriends()));
+  app.get('/api/maturity/friends', (_, res) => {
+    const nowMs = Date.now();
+    const rows = farmDb.listFriends(nowMs).map(friend => {
+      const lands = farmDb.listFriendLands(friend.gid);
+      const maturePickableTotal = lands.filter(land => isMaturePickable(land, nowMs)).length;
+      return { ...friend, stealable_total: maturePickableTotal, mature_pickable_total: maturePickableTotal };
+    });
+    res.json(rows);
+  });
   app.get('/api/maturity/friends/:gid', (req, res) => {
     const friend = farmDb.getFriend(req.params.gid);
     if (!friend) return res.status(404).json({ message: 'friend not found' });
@@ -156,9 +191,7 @@ function startHttpServer() {
     const result = req.body?.result || {};
     const command = farmDb.completeCommand(req.params.id, status, result);
     const payload = safeJson(command?.payload_json, {});
-    if (payload.taskId && payload.mode === 'countdown_harvest') {
-      farmDb.markTask(payload.taskId, status === 'done' ? 'harvested' : 'failed', result.message || 'visual helper completed');
-    }
+    if (payload.taskId && payload.mode === 'countdown_harvest') farmDb.markTask(payload.taskId, status === 'done' ? 'harvested' : 'failed', result.message || 'visual helper completed');
     res.json({ command });
   });
   app.get('/api/maturity/profiles/:gid', (req, res) => res.json(farmDb.getProfile(req.params.gid) || {}));
@@ -167,9 +200,9 @@ function startHttpServer() {
   app.get('/api/maturity/logs', (req, res) => res.json(farmDb.listLogs(req.query.limit || 100)));
 
   app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
+  app.get('/proxy.html', (_, res) => sendProxyHtmlWithFixes(res));
   app.use(express.static(__dirname));
 
-  // 统一端口模式：成熟时间服务作为前台入口，原解析服务运行在内部端口，其他 API 透明转发。
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/') || /^\/ca\.(pem|cer|crt)$/.test(req.path)) return proxyToFarmParse(req, res);
     next();

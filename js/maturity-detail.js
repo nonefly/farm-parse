@@ -7,6 +7,15 @@ function injectMaturityDetailStyle() {
   document.head.appendChild(style);
 }
 
+function isLandHarvestable(land, now = Date.now()) {
+  const matureAt = Number(land?.mature_at || 0);
+  return Number(land?.has_plant) === 1
+    && matureAt > 0
+    && matureAt <= now
+    && Number(land?.stealable) === 1
+    && Number(land?.left_fruit_num || 0) > 0;
+}
+
 async function renderEnhancedFriendDetail(gid) {
   injectMaturityDetailStyle();
   const data = await maturityGetFriendDetail(gid);
@@ -16,9 +25,10 @@ async function renderEnhancedFriendDetail(gid) {
   document.getElementById('profileHint').textContent = data.profile && Object.keys(data.profile).length ? '已记录点击位置' : '未记录点击位置';
 
   const lands = data.lands || [];
+  const now = Date.now();
   const plantTotal = lands.filter(l => Number(l.has_plant) === 1).length;
-  const readyTotal = lands.filter(l => Number(l.mature_at || 0) > 0 && Number(l.mature_at) <= Date.now()).length;
-  const stealableTotal = lands.filter(l => Number(l.stealable) === 1).length;
+  const readyTotal = lands.filter(l => Number(l.mature_at || 0) > 0 && Number(l.mature_at) <= now).length;
+  const harvestableTotal = lands.filter(l => isLandHarvestable(l, now)).length;
   let summary = document.getElementById('friendLandSummary');
   if (!summary) {
     summary = document.createElement('div');
@@ -26,15 +36,16 @@ async function renderEnhancedFriendDetail(gid) {
     summary.className = 'friend-summary';
     panel.insertBefore(summary, document.getElementById('landsGrid'));
   }
-  summary.innerHTML = `作物 <b>${plantTotal}</b> 块，已成熟 <b>${readyTotal}</b> 块，可摘 <b>${stealableTotal}</b> 块，最近抓包：${maturityFmtTime(data.friend.last_seen_at)}`;
+  summary.innerHTML = `作物 <b>${plantTotal}</b> 块，已成熟 <b>${readyTotal}</b> 块，成熟可摘 <b>${harvestableTotal}</b> 块，最近抓包：${maturityFmtTime(data.friend.last_seen_at)}`;
 
   document.getElementById('landsGrid').innerHTML = lands.map(l => {
     const matureAt = Number(l.mature_at || 0);
-    const ready = matureAt > 0 && matureAt <= Date.now();
-    const soon = matureAt > Date.now() && matureAt - Date.now() < 10 * 60 * 1000;
+    const ready = matureAt > 0 && matureAt <= now;
+    const harvestable = isLandHarvestable(l, now);
+    const soon = matureAt > now && matureAt - now < 10 * 60 * 1000;
     const hasPlant = Number(l.has_plant) === 1;
     const cls = ready ? 'land ready' : soon ? 'land soon' : l.mutant_summary ? 'land mutant' : 'land';
-    return `<div class="${cls}"><div class="no">#${l.land_id}</div><div class="plant-icon">${hasPlant ? plantIcon(l.plant_name) : '🟫'}</div><div class="name">${maturityEsc(hasPlant ? l.plant_name : '空地')}</div><div class="tags"><span>${maturityEsc(l.phase_name || l.phase || '-')}</span>${l.stealable ? '<span class="tag-red">可摘</span>' : ''}${ready ? '<span class="tag-red">已成熟</span>' : ''}${l.mutant_summary ? '<span class="tag-green">变异</span>' : ''}</div><div class="time">成熟：${maturityFmtTime(matureAt)}<br>倒计时：${maturityFmtCountdown(matureAt)}<br>剩余果实：${l.left_fruit_num || 0}/${l.fruit_num || 0}${l.mutant_summary ? '<br><span class="mutant">变异：'+maturityEsc(l.mutant_summary)+'</span>' : ''}</div></div>`;
+    return `<div class="${cls}"><div class="no">#${l.land_id}</div><div class="plant-icon">${hasPlant ? plantIcon(l.plant_name) : '🟫'}</div><div class="name">${maturityEsc(hasPlant ? l.plant_name : '空地')}</div><div class="tags"><span>${maturityEsc(l.phase_name || l.phase || '-')}</span>${harvestable ? '<span class="tag-red">成熟可摘</span>' : ''}${ready ? '<span class="tag-red">已成熟</span>' : ''}${l.mutant_summary ? '<span class="tag-green">变异</span>' : ''}</div><div class="time">成熟：${maturityFmtTime(matureAt)}<br>倒计时：${maturityFmtCountdown(matureAt)}<br>剩余果实：${l.left_fruit_num || 0}/${l.fruit_num || 0}${l.mutant_summary ? '<br><span class="mutant">变异：'+maturityEsc(l.mutant_summary)+'</span>' : ''}</div></div>`;
   }).join('') || '<div class="dim">暂无土地数据</div>';
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
