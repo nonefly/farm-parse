@@ -153,7 +153,6 @@ var plantImageMap = {
   '哈哈小南瓜': 'plant_Crop_9001_Seed.png',
   '欢乐糖果': 'Happy_Candy_Seed.png',
   '绵绵糖果': 'Cotton_Candy_Seed.png',
-  // 黄金系列
   '黄金·欢乐糖果': 'Gold_Happy_Candy_Seed.png',
   '黄金·风信子': 'Gold_Crop_112_Seed.png',
   '黄金·银杏树苗': 'Gold_Crop_25_Seed.png',
@@ -174,3 +173,70 @@ var plantImageMap = {
   '黄金·哈哈南瓜塔': 'Gold_Crop_8001_Seed.png',
   '黄金·哈哈小南瓜': 'Gold_Crop_9001_Seed.png'
 };
+
+(function installProxyMaturityOverlay(){
+  function getField(obj, camel, snake, fallback) {
+    if (!obj) return fallback;
+    if (obj[camel] !== undefined) return obj[camel];
+    if (obj[snake] !== undefined) return obj[snake];
+    return fallback;
+  }
+  function toNum(v) { return Number(v || 0) || 0; }
+  function phaseBeginMs(phase) {
+    const n = toNum(getField(phase, 'beginTime', 'begin_time', 0));
+    return n > 100000000000 ? n : n * 1000;
+  }
+  function matureAtMs(plant) {
+    const phases = [...(plant?.phases || [])].map(p => ({ ...p, beginMs: phaseBeginMs(p), phase: toNum(p.phase) })).sort((a,b)=>a.beginMs-b.beginMs);
+    const mature = phases.find(p => p.phase === 6 && p.beginMs > 0);
+    if (mature) return mature.beginMs;
+    const first = phases.find(p => p.beginMs > 0)?.beginMs || 0;
+    const growSec = toNum(getField(plant, 'growSec', 'grow_sec', 0));
+    return first && growSec ? first + growSec * 1000 : 0;
+  }
+  function shortTime(ms) {
+    if (!ms) return '-';
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function addStyle() {
+    if (document.getElementById('proxyMaturityOverlayStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'proxyMaturityOverlayStyle';
+    style.textContent = `.land-cell{min-height:92px}.plant-meta{font-size:7px;line-height:1.2;color:#334155;text-align:center;margin-top:2px;background:rgba(255,255,255,.72);border-radius:6px;padding:1px 3px;max-width:100%;font-weight:700}.land-cell.mutant-dark .plant-meta{color:#f8fafc;background:rgba(15,23,42,.45)}`;
+    document.head.appendChild(style);
+  }
+  function decorate(event) {
+    if (!event || !event.lands) return;
+    addStyle();
+    setTimeout(() => {
+      for (const land of event.lands || []) {
+        if (!land?.plant?.id) continue;
+        const id = Number(land.id);
+        const cell = [...document.querySelectorAll('.land-cell')].find(el => el.querySelector('.land-no')?.textContent === `#${id}`);
+        if (!cell || cell.querySelector('.plant-meta')) continue;
+        const plant = land.plant;
+        const total = toNum(getField(plant, 'fruitNum', 'fruit_num', 0));
+        const left = toNum(getField(plant, 'leftFruitNum', 'left_fruit_num', 0));
+        const ms = matureAtMs(plant);
+        const yieldText = total ? `${left}/${total}` : '-';
+        const meta = document.createElement('div');
+        meta.className = 'plant-meta';
+        meta.innerHTML = `熟:${shortTime(ms)}<br>余:${yieldText}<br>收:${left || '-'}`;
+        cell.title = `${cell.title || ''}\n成熟时间: ${ms ? new Date(ms).toLocaleString() : '-'}\n剩余/总数: ${yieldText}\n收益/可收数量: ${left || '-'}`;
+        cell.appendChild(meta);
+      }
+    }, 0);
+  }
+  const timer = setInterval(() => {
+    if (typeof window.renderFarmEvent === 'function') {
+      clearInterval(timer);
+      const original = window.renderFarmEvent;
+      window.renderFarmEvent = function(event) {
+        original(event);
+        decorate(event);
+      };
+      if (window.latestFarmEvent) decorate(window.latestFarmEvent);
+    }
+  }, 50);
+})();
