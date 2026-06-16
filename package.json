@@ -1,6 +1,6 @@
 {
   "name": "farm-parse",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "",
   "main": "proxy-server.js",
   "bin": "start-all.js",
@@ -14,8 +14,8 @@
     "start:all": "node start-all.js",
     "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js && node --check js/maturity-core.js && node --check js/maturity-extra.js && node --check js/maturity-detail.js",
     "build": "node build.js",
-    "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v1.0.0.exe",
-    "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v1.0.0"
+    "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v2.0.0.exe",
+    "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v2.0.0"
   },
   "repository": {
     "type": "git",
@@ -62,6 +62,7 @@
       "js/**/*.js",
       "proto/**/*.proto",
       "data/**/*.json",
+      "img/**/*",
       "node_modules/sql.js/dist/sql-wasm.wasm"
     ],
     "targets": [
