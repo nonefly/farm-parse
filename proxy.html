@@ -52,7 +52,7 @@
     .mono{font-family:monospace}
     .land-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:6px}
     .land-grid .spacer{visibility:hidden;pointer-events:none}
-    .land-cell{aspect-ratio:1/1;border-radius:14px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 3px;border:1.5px solid #e2e8f0;background:#fefce8;transition:all 0.05s linear;overflow:hidden}
+    .land-cell{aspect-ratio:1/1;border-radius:14px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 3px;border:1.5px solid #e2e8f0;background:#fefce8;transition:all 0.05s linear;overflow:hidden;min-height:96px}
     .land-cell.big-crop{border-color:#f97316;border-width:2.5px;box-shadow:0 0 12px rgba(249,115,22,0.35);background:linear-gradient(145deg,#fff7ed,#ffedd5)}
     .land-cell.mutant.big-crop{border-color:#f97316;border-width:2.5px;box-shadow:0 0 12px rgba(249,115,22,0.4),0 0 5px rgba(250,204,21,0.4)}
     .land-cell.locked{background:url('/img/land/land_0.png') center/cover no-repeat;border-color:#cbd5e1}
@@ -170,7 +170,9 @@
       '暗化': '/img/Mutation/dark.png',
       '湿润': '/img/Mutation/moist.png',
       '黄金': '/img/Mutation/golden.png',
-      '绵绵': '/img/Mutation/mianmian.png'
+      '绵绵': '/img/Mutation/mianmian.png',
+      '荷华': '/img/Mutation/hehua.png',
+      '月华': '/img/Mutation/yuehua.png'
     };
 
     const BIG_CROP_NAMES = ['哈哈南瓜', '哈哈南瓜塔', '黄金·哈哈南瓜塔', '黄金·哈哈南瓜', '黄金·爱心果', '爱心果'];

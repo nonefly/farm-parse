@@ -9,45 +9,52 @@ function injectMaturityDetailStyle() {
 
 function isLandHarvestable(land, now = Date.now()) {
   const matureAt = Number(land?.mature_at || 0);
+  const left = Number(land?.left_fruit_num || 0);
+  const total = Number(land?.fruit_num || 0);
   return Number(land?.has_plant) === 1
     && matureAt > 0
     && matureAt <= now
     && Number(land?.stealable) === 1
-    && Number(land?.left_fruit_num || 0) > 0;
+    && total > 0
+    && left > total * 0.7;
+}
+
+function closeFriendModal() {
+  const modal = document.getElementById('friendModal');
+  if (modal) modal.style.display = 'none';
 }
 
 async function renderEnhancedFriendDetail(gid) {
   injectMaturityDetailStyle();
-  const data = await maturityGetFriendDetail(gid);
-  const panel = document.getElementById('landsPanel');
-  panel.style.display = 'block';
-  document.getElementById('landsTitle').textContent = `${data.friend.name || '未知'} (${data.friend.gid}) 的土地作物详情`;
-  document.getElementById('profileHint').textContent = data.profile && Object.keys(data.profile).length ? '已记录点击位置' : '未记录点击位置';
+  try {
+    const data = await maturityGetFriendDetail(gid);
+    const modal = document.getElementById('friendModal');
+    const modalTitle = document.getElementById('modalTitle');
+    if (modalTitle) modalTitle.textContent = `${data.friend.name || '未知'} (${data.friend.gid}) 的土地作物详情`;
 
-  const lands = data.lands || [];
-  const now = Date.now();
-  const plantTotal = lands.filter(l => Number(l.has_plant) === 1).length;
-  const readyTotal = lands.filter(l => Number(l.mature_at || 0) > 0 && Number(l.mature_at) <= now).length;
-  const harvestableTotal = lands.filter(l => isLandHarvestable(l, now)).length;
-  let summary = document.getElementById('friendLandSummary');
-  if (!summary) {
-    summary = document.createElement('div');
-    summary.id = 'friendLandSummary';
-    summary.className = 'friend-summary';
-    panel.insertBefore(summary, document.getElementById('landsGrid'));
-  }
-  summary.innerHTML = `作物 <b>${plantTotal}</b> 块，已成熟 <b>${readyTotal}</b> 块，成熟可摘 <b>${harvestableTotal}</b> 块，最近抓包：${maturityFmtTime(data.friend.last_seen_at)}`;
+    const lands = data.lands || [];
+    const now = Date.now();
+    const plantTotal = lands.filter(l => Number(l.has_plant) === 1).length;
+    const readyTotal = lands.filter(l => Number(l.mature_at || 0) > 0 && Number(l.mature_at) <= now).length;
+    const harvestableTotal = lands.filter(l => isLandHarvestable(l, now)).length;
+    const modalLandSummary = document.getElementById('modalLandSummary');
+    if (modalLandSummary) modalLandSummary.innerHTML = `作物 <b>${plantTotal}</b> 块，已成熟 <b>${readyTotal}</b> 块，成熟可摘 <b>${harvestableTotal}</b> 块，最近抓包：${maturityFmtTime(data.friend.last_seen_at)}`;
 
-  document.getElementById('landsGrid').innerHTML = lands.map(l => {
-    const matureAt = Number(l.mature_at || 0);
-    const ready = matureAt > 0 && matureAt <= now;
-    const harvestable = isLandHarvestable(l, now);
-    const soon = matureAt > now && matureAt - now < 10 * 60 * 1000;
-    const hasPlant = Number(l.has_plant) === 1;
-    const cls = ready ? 'land ready' : soon ? 'land soon' : l.mutant_summary ? 'land mutant' : 'land';
-    return `<div class="${cls}"><div class="no">#${l.land_id}</div><div class="plant-icon">${hasPlant ? plantIcon(l.plant_name) : '🟫'}</div><div class="name">${maturityEsc(hasPlant ? l.plant_name : '空地')}</div><div class="tags"><span>${maturityEsc(l.phase_name || l.phase || '-')}</span>${harvestable ? '<span class="tag-red">成熟可摘</span>' : ''}${ready ? '<span class="tag-red">已成熟</span>' : ''}${l.mutant_summary ? '<span class="tag-green">变异</span>' : ''}</div><div class="time">成熟：${maturityFmtTime(matureAt)}<br>倒计时：${maturityFmtCountdown(matureAt)}<br>剩余果实：${l.left_fruit_num || 0}/${l.fruit_num || 0}${l.mutant_summary ? '<br><span class="mutant">变异：'+maturityEsc(l.mutant_summary)+'</span>' : ''}</div></div>`;
-  }).join('') || '<div class="dim">暂无土地数据</div>';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const modalLandGrid = document.getElementById('modalLandGrid');
+    if (modalLandGrid) {
+      modalLandGrid.innerHTML = lands.map(l => {
+        const matureAt = Number(l.mature_at || 0);
+        const ready = matureAt > 0 && matureAt <= now;
+        const harvestable = isLandHarvestable(l, now);
+        const soon = matureAt > now && matureAt - now < 10 * 60 * 1000;
+        const hasPlant = Number(l.has_plant) === 1;
+        const cls = ready ? 'land ready' : soon ? 'land soon' : l.mutant_summary ? 'land mutant' : 'land';
+        return `<div class="${cls}"><div class="no">#${l.land_id}</div><div class="plant-icon">${hasPlant ? plantIcon(l.plant_name) : '🟫'}</div><div class="name">${maturityEsc(hasPlant ? l.plant_name : '空地')}</div><div class="tags"><span>${maturityEsc(l.phase_name || l.phase || '-')}</span>${harvestable ? '<span class="tag-red">成熟可摘</span>' : ''}${ready ? '<span class="tag-red">已成熟</span>' : ''}${l.mutant_summary ? '<span class="tag-green">变异</span>' : ''}</div><div class="time">成熟：${maturityFmtTime(matureAt)}<br>倒计时：${maturityFmtCountdown(matureAt)}<br>剩余果实：${l.left_fruit_num || 0}/${l.fruit_num || 0}${l.mutant_summary ? '<br><span class="mutant">变异：'+maturityEsc(l.mutant_summary)+'</span>' : ''}</div></div>`;
+      }).join('') || '<div class="dim">暂无土地数据</div>';
+    }
+
+    if (modal) modal.style.display = 'flex';
+  } catch {}
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -55,7 +62,6 @@ window.addEventListener('DOMContentLoaded', () => {
   window.selectFriend = async function(gid) {
     try {
       await renderEnhancedFriendDetail(gid);
-      if (typeof loadFriends === 'function') loadFriends().catch(()=>{});
     } catch (err) {
       alert(err.message || String(err));
     }

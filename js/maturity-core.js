@@ -41,32 +41,46 @@ async function api(url, options) {
   return res.json();
 }
 async function loadStatus() {
-  const s = await api('/api/maturity/status');
-  schedulerEnabled = !!s.scheduler?.enabled;
-  document.getElementById('streamState').textContent = s.streamConnected ? '已连接' : '未连接';
-  document.getElementById('streamState').className = s.streamConnected ? 'value ok' : 'value ready';
-  document.getElementById('lastFriend').textContent = s.lastPersistedFriend ? `${s.lastPersistedFriend.name} (${s.lastPersistedFriend.gid})` : '--';
-  document.getElementById('schedulerBtn').textContent = schedulerEnabled ? '关闭调度' : '开启调度';
-  document.getElementById('schedulerBtn').className = schedulerEnabled ? 'btn warn' : 'btn primary';
+  try {
+    const s = await api('/api/maturity/status');
+    schedulerEnabled = !!s.scheduler?.enabled;
+    const streamStateEl = document.getElementById('streamState');
+    if (streamStateEl) {
+      streamStateEl.textContent = s.streamConnected ? '已连接' : '未连接';
+      streamStateEl.className = s.streamConnected ? 'value ok' : 'value ready';
+    }
+    const lastFriendEl = document.getElementById('lastFriend');
+    if (lastFriendEl) lastFriendEl.textContent = s.lastPersistedFriend ? `${s.lastPersistedFriend.name} (${s.lastPersistedFriend.gid})` : '--';
+    const schedulerBtnEl = document.getElementById('schedulerBtn');
+    if (schedulerBtnEl) {
+      schedulerBtnEl.textContent = schedulerEnabled ? '关闭调度' : '开启调度';
+      schedulerBtnEl.className = schedulerEnabled ? 'btn warn' : 'btn primary';
+    }
+  } catch {}
 }
 async function toggleScheduler() {
   await api('/api/maturity/scheduler/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ enabled: !schedulerEnabled }) });
   await loadStatus();
 }
 async function loadFriends() {
-  const friends = await api('/api/maturity/friends');
-  document.getElementById('friendCount').textContent = friends.length;
-  const body = document.getElementById('friendsBody');
-  body.innerHTML = friends.map(f => {
-    const next = Number(f.next_mature_at || 0);
-    return `<tr class="${selectedGid === String(f.gid) ? 'selected' : ''}" onclick="selectFriend('${esc(f.gid)}')"><td><b>${esc(f.name || '未知')}</b></td><td class="dim">${esc(f.gid)}</td><td>${f.land_total || 0}</td><td>${f.plant_total || 0}</td><td class="ready">${f.stealable_total || 0}</td><td>${f.mature_total || 0}</td><td>${fmtTime(next)}</td><td>${fmtCountdown(next)}</td><td>${fmtAge(f.last_seen_at)}</td></tr>`;
-  }).join('') || '<tr><td colspan="9" class="dim">等待抓包数据...</td></tr>';
+  try {
+    const friends = await api('/api/maturity/friends');
+    const friendCountEl = document.getElementById('friendCount');
+    if (friendCountEl) friendCountEl.textContent = friends.length;
+  } catch {}
 }
 async function loadTasks() {
-  const tasks = await api('/api/maturity/tasks?status=active&limit=100');
-  document.getElementById('taskCount').textContent = tasks.length;
-  document.getElementById('taskHint').textContent = tasks[0] ? `最近：${fmtCountdown(tasks[0].mature_at)}` : '暂无任务';
-  document.getElementById('tasksBody').innerHTML = tasks.map(t => `<tr><td><span class="pill">${esc(t.status)}</span></td><td><b>${esc(t.friend_name || '未知')}</b></td><td class="dim">${esc(t.friend_gid)}</td><td>#${t.land_id}</td><td>${esc(t.plant_name || t.plant_id)}</td><td>${fmtTime(t.mature_at)}</td><td class="${Number(t.mature_at) <= Date.now() ? 'ready' : ''}">${fmtCountdown(t.mature_at)}</td><td><button class="btn" onclick="markTask(${t.id}, 'harvested')">标记已摘</button> <button class="btn" onclick="markTask(${t.id}, 'skipped')">跳过</button></td></tr>`).join('') || '<tr><td colspan="8" class="dim">暂无活跃任务</td></tr>';
+  try {
+    const tasks = await api('/api/maturity/tasks?status=active&limit=100');
+    const taskCountEl = document.getElementById('taskCount');
+    if (taskCountEl) taskCountEl.textContent = tasks.length;
+    const taskHintEl = document.getElementById('taskHint');
+    if (taskHintEl) taskHintEl.textContent = tasks[0] ? `最近：${fmtCountdown(tasks[0].mature_at)}` : '暂无任务';
+    const tasksBodyEl = document.getElementById('tasksBody');
+    if (tasksBodyEl) {
+      tasksBodyEl.innerHTML = tasks.map(t => `<tr><td><span class="pill">${esc(t.status)}</span></td><td><b>${esc(t.friend_name || '未知')}</b></td><td class="dim">${esc(t.friend_gid)}</td><td>#${t.land_id}</td><td>${esc(t.plant_name || t.plant_id)}</td><td>${fmtTime(t.mature_at)}</td><td class="${Number(t.mature_at) <= Date.now() ? 'ready' : ''}">${fmtCountdown(t.mature_at)}</td><td><button class="btn" onclick="markTask(${t.id}, 'harvested')">标记已摘</button> <button class="btn" onclick="markTask(${t.id}, 'skipped')">跳过</button></td></tr>`).join('') || '<tr><td colspan="8" class="dim">暂无活跃任务</td></tr>';
+    }
+  } catch {}
 }
 async function markTask(id, status) {
   await api(`/api/maturity/tasks/${id}/mark`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status, message:'manual mark from dashboard' }) });
@@ -74,24 +88,27 @@ async function markTask(id, status) {
 }
 async function selectFriend(gid) {
   selectedGid = String(gid);
-  const data = await api(`/api/maturity/friends/${encodeURIComponent(gid)}`);
-  document.getElementById('landsPanel').style.display = 'block';
-  document.getElementById('landsTitle').textContent = `${data.friend.name || '未知'} (${data.friend.gid}) 的土地`;
-  document.getElementById('profileHint').textContent = data.profile && Object.keys(data.profile).length ? '已记录点击位置' : '未记录点击位置';
-  const lands = data.lands || [];
-  document.getElementById('landsGrid').innerHTML = lands.map(l => {
-    const cls = Number(l.mature_at) <= Date.now() && Number(l.mature_at) > 0 ? 'land ready' : Number(l.mature_at) - Date.now() < 10 * 60 * 1000 ? 'land soon' : 'land';
-    return `<div class="${cls}"><div class="no">#${l.land_id}</div><div class="name">${esc(l.has_plant ? l.plant_name : '空地')}</div><div class="time">阶段：${esc(l.phase_name || l.phase)}<br>成熟：${fmtTime(l.mature_at)}<br>倒计时：${fmtCountdown(l.mature_at)}<br>可摘：${l.stealable ? '是' : '否'} ${l.mutant_summary ? '<br><span class="mutant">变异：'+esc(l.mutant_summary)+'</span>' : ''}</div></div>`;
-  }).join('') || '<div class="dim">暂无土地数据</div>';
-  await loadFriends();
 }
 async function loadLogs() {
-  const logs = await api('/api/maturity/logs?limit=80');
-  document.getElementById('logs').innerHTML = logs.map(l => `[${new Date(Number(l.created_at)).toLocaleTimeString()}] ${esc(l.level)} ${esc(l.message)}`).join('<br>') || '--';
+  try {
+    const logs = await api('/api/maturity/logs?limit=80');
+    const logsEl = document.getElementById('logs');
+    if (logsEl) logsEl.innerHTML = logs.map(l => `[${new Date(Number(l.created_at)).toLocaleTimeString()}] ${esc(l.level)} ${esc(l.message)}`).join('<br>') || '--';
+  } catch {}
 }
+async function cleanupExpired() {
+  try {
+    await api('/api/maturity/cleanup', { method: 'POST' });
+  } catch {}
+}
+
 async function refreshAll() {
+  await cleanupExpired();
   await Promise.all([loadStatus(), loadFriends(), loadTasks(), loadLogs()]);
-  if (selectedGid) selectFriend(selectedGid).catch(()=>{});
+  if (typeof maturityLoadFriendIndex === 'function') {
+    await maturityLoadFriendIndex().catch(()=>{});
+    if (typeof applyFriendNameSearch === 'function') applyFriendNameSearch();
+  }
 }
 window.addEventListener('DOMContentLoaded', () => {
   refreshAll().catch(err => alert(err.message));

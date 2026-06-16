@@ -214,7 +214,9 @@ var plantImageMap = {
         if (!land?.plant?.id) continue;
         const id = Number(land.id);
         const cell = [...document.querySelectorAll('.land-cell')].find(el => el.querySelector('.land-no')?.textContent === `#${id}`);
-        if (!cell || cell.querySelector('.plant-meta')) continue;
+        if (!cell) continue;
+        const existingMeta = cell.querySelector('.plant-meta');
+        if (existingMeta) existingMeta.remove();
         const plant = land.plant;
         const total = toNum(getField(plant, 'fruitNum', 'fruit_num', 0));
         const left = toNum(getField(plant, 'leftFruitNum', 'left_fruit_num', 0));
@@ -222,8 +224,8 @@ var plantImageMap = {
         const yieldText = total ? `${left}/${total}` : '-';
         const meta = document.createElement('div');
         meta.className = 'plant-meta';
-        meta.innerHTML = `熟:${shortTime(ms)}<br>余:${yieldText}<br>收:${left || '-'}`;
-        cell.title = `${cell.title || ''}\n成熟时间: ${ms ? new Date(ms).toLocaleString() : '-'}\n剩余/总数: ${yieldText}\n收益/可收数量: ${left || '-'}`;
+        meta.innerHTML = `熟:${shortTime(ms)}<br>余:${yieldText}`;
+        cell.title = `${cell.title || ''}\n成熟时间: ${ms ? new Date(ms).toLocaleString() : '-'}\n剩余/总数: ${yieldText}`;
         cell.appendChild(meta);
       }
     }, 0);

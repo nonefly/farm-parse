@@ -29,11 +29,14 @@ function safeJson(value, fallback = {}) {
 
 function isMaturePickable(land, nowMs = Date.now()) {
   const matureAt = Number(land?.mature_at || 0);
+  const left = Number(land?.left_fruit_num || 0);
+  const total = Number(land?.fruit_num || 0);
   return Number(land?.has_plant) === 1
     && matureAt > 0
     && matureAt <= nowMs
     && Number(land?.stealable) === 1
-    && Number(land?.left_fruit_num || 0) > 0;
+    && total > 0
+    && left > total * 0.7;
 }
 
 function connectFarmParseStream() {
@@ -180,6 +183,8 @@ function startHttpServer() {
   app.get('/api/maturity/friends/:gid', (req, res) => {
     const friend = farmDb.getFriend(req.params.gid);
     if (!friend) return res.status(404).json({ message: 'friend not found' });
+    farmDb.run('UPDATE friends SET last_seen_at = ? WHERE gid = ?', [Date.now(), req.params.gid]);
+    farmDb.save();
     res.json({ friend, lands: farmDb.listFriendLands(req.params.gid), profile: farmDb.getProfile(req.params.gid) });
   });
   app.get('/api/maturity/friends/:gid/lands', (req, res) => res.json(farmDb.listFriendLands(req.params.gid)));
@@ -198,6 +203,10 @@ function startHttpServer() {
   app.post('/api/maturity/profiles/:gid', (req, res) => res.json(farmDb.saveProfile(req.params.gid, req.body || {})));
   app.post('/api/maturity/logs', (req, res) => { farmDb.addLog(req.body?.level || 'info', req.body?.message || '', req.body?.payload || {}); res.json({ ok: true }); });
   app.get('/api/maturity/logs', (req, res) => res.json(farmDb.listLogs(req.query.limit || 100)));
+  app.post('/api/maturity/cleanup', (_, res) => {
+    const removed = farmDb.cleanupExpiredFriends(Date.now());
+    res.json({ removed });
+  });
 
   app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
   app.get('/proxy.html', (_, res) => sendProxyHtmlWithFixes(res));

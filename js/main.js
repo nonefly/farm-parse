@@ -23,6 +23,8 @@ const MUTATION_TYPE_MAP = {
     5: { name: '黄金', icon: '✨', type: 5, class: 'mutant-gold', color: '#eab308' },
     6: { name: '哈哈', icon: '🎃', type: 6, class: 'mutant-pumpkin', color: '#ea580c' },
     7: { name: '塔塔', icon: '🏰', type: 7, class: 'mutant-tower', color: '#7c3aed' },
+    8: { name: '荷华', icon: '🪷', type: 8, class: 'mutant-ice-crystal', color: '#0ea5e9' },
+    9: { name: '月华', icon: '🌙', type: 9, class: 'mutant-ice-crystal', color: '#8b5cf6' },
     10: { name: '绵绵', icon: '☁️', type: 10, class: 'mutant-mianmian', color: '#f9a8d4' },
     55: { name: '水晶', icon: '💎', type: 55, class: 'mutant-crystal', color: '#a855f7' },
     105: { name: '闪耀', icon: '⭐', type: 105, class: 'mutant-shine', color: '#fbbf24' },

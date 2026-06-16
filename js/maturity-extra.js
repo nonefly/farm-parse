@@ -1,6 +1,5 @@
 const maturitySearch = {
   friends: [],
-  detailCache: new Map(),
 };
 
 async function maturityApi(url, options) {
@@ -53,11 +52,21 @@ async function maturityLoadFriendIndex() {
 }
 
 async function maturityGetFriendDetail(gid) {
-  const key = String(gid);
-  if (maturitySearch.detailCache.has(key)) return maturitySearch.detailCache.get(key);
-  const data = await maturityApi(`/api/maturity/friends/${encodeURIComponent(key)}`);
-  maturitySearch.detailCache.set(key, data);
-  return data;
+  return maturityApi(`/api/maturity/friends/${encodeURIComponent(gid)}`);
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.createElement('span');
+    btn.textContent = '✓';
+    btn.style.color = '#16a34a';
+    btn.style.marginLeft = '4px';
+    btn.style.fontWeight = 'bold';
+    return btn;
+  } catch {
+    return null;
+  }
 }
 
 function applyFriendNameSearch() {
@@ -66,11 +75,18 @@ function applyFriendNameSearch() {
   const body = document.getElementById('friendNameSearchBody');
   if (!input || !body) return;
   const q = input.value.trim().toLowerCase();
-  const rows = maturitySearch.friends.filter(f => !q || String(f.name || '').toLowerCase().includes(q) || String(f.gid || '').includes(q));
-  if (hint) hint.textContent = q ? `匹配 ${rows.length}/${maturitySearch.friends.length} 个好友` : `共 ${maturitySearch.friends.length} 个好友`;
+  let rows = maturitySearch.friends.filter(f => !q || String(f.name || '').toLowerCase().includes(q) || String(f.gid || '').includes(q));
+  rows = rows.sort((a, b) => {
+    const ma = Number(a.next_mature_at || 0);
+    const mb = Number(b.next_mature_at || 0);
+    if (!ma) return 1;
+    if (!mb) return -1;
+    return ma - mb;
+  }).slice(0, 10);
+  if (hint) hint.textContent = q ? `匹配 ${rows.length} 个好友（最近10条）` : `最近成熟的 ${rows.length} 个好友`;
   body.innerHTML = rows.map(f => {
     const next = Number(f.next_mature_at || 0);
-    return `<tr onclick="selectFriend('${maturityEsc(f.gid)}')"><td><b>${maturityEsc(f.name || '未知')}</b></td><td class="dim">${maturityEsc(f.gid)}</td><td>${f.plant_total || 0}</td><td class="ready">${f.stealable_total || 0}</td><td>${maturityFmtTime(next)}</td><td>${maturityFmtCountdown(next)}</td><td>${maturityFmtTime(f.last_seen_at)}</td></tr>`;
+    return `<tr onclick="selectFriend('${maturityEsc(f.gid)}')"><td><b style="cursor:pointer" onclick="event.stopPropagation();copyToClipboard('${maturityEsc(f.name || '')}');this.style.color='#16a34a';setTimeout(()=>this.style.color='',1500)">${maturityEsc(f.name || '未知')}</b></td><td class="dim" style="cursor:pointer" onclick="event.stopPropagation();copyToClipboard('${maturityEsc(f.gid)}');this.style.color='#16a34a';setTimeout(()=>this.style.color='',1500)">${maturityEsc(f.gid)}</td><td>${f.plant_total || 0}</td><td class="ready">${f.stealable_total || 0}</td><td>${maturityFmtTime(next)}</td><td>${maturityFmtCountdown(next)}</td><td>${maturityFmtTime(f.last_seen_at)}</td></tr>`;
   }).join('') || '<tr><td colspan="7" class="dim">没有匹配好友</td></tr>';
 }
 

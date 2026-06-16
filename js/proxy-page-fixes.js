@@ -24,8 +24,8 @@
         max-width: none !important;
         max-height: none !important;
         object-fit: contain !important;
-        opacity: .20 !important;
-        filter: blur(1.3px) saturate(.75) contrast(.95) !important;
+        opacity: .65 !important;
+        filter: saturate(1.1) contrast(1.05) !important;
         z-index: 0 !important;
         pointer-events: none !important;
       }

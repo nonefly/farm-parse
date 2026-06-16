@@ -908,6 +908,22 @@ function startHttp() {
         });
     }
 
+    app.use('/api/maturity', express.json(), (req, res) => {
+        const target = new URL(req.originalUrl || req.url, `http://127.0.0.1:8790`);
+        const headers = { ...req.headers, host: target.host };
+        delete headers['content-length'];
+        const proxyReq = http.request(target, { method: req.method, headers }, proxyRes => {
+            res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+            proxyRes.pipe(res);
+        });
+        proxyReq.on('error', error => {
+            if (!res.headersSent) res.status(502).json({ message: `maturity-server 不可用: ${error.message}` });
+            else res.end();
+        });
+        if (req.body) proxyReq.write(JSON.stringify(req.body));
+        proxyReq.end();
+    });
+
     app.use(express.static(__dirname));
 
     app.get('/', (_, res) => {
@@ -978,23 +994,8 @@ function startHttp() {
     app.get('/ca.crt', (_, res) => sendCaCertificate(res, 'farm-parse-ca.crt'));
 
     app.listen(HTTP_PORT, '0.0.0.0', () => {
-        const addresses = getLocalAddresses();
         const authUrl = IS_PACKAGED ? '/auth.html' : '/proxy.html';
-        console.log('');
-        console.log('========================================');
-        console.log('Farm Parse 服务已启动');
-        console.log('========================================');
-        console.log(`本地访问: http://127.0.0.1:${HTTP_PORT}${authUrl}`);
-        for (const address of addresses) {
-            console.log(`局域网访问: http://${address}:${HTTP_PORT}${authUrl}`);
-        }
-        console.log('========================================');
-        console.log('');
-        
-        setTimeout(() => {
-            console.log = function() {};
-            console.error = function() {};
-        }, 1000);
+        console.log(`http://127.0.0.1:${HTTP_PORT}${authUrl}`);
     });
 
 }
