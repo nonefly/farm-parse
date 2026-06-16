@@ -2,103 +2,31 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>农场解析工具</title>
   <style>
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#f0fdf4,#d1fae5);color:#0f172a;min-height:100vh}
-    .page{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
-    .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
-    h1{margin:0;font-size:30px;color:#166534;letter-spacing:.02em}.sub{margin:8px 0 0;color:#15803d;font-size:14px;line-height:1.6}.status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#fff;border:1px solid #bbf7d0;padding:7px 12px;color:#166534;font-size:13px;font-weight:800;box-shadow:0 3px 10px rgba(15,23,42,.04)}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}.card{background:#fff;border:1px solid #e5f5ea;border-radius:22px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.06);display:flex;flex-direction:column;min-height:210px}.icon{font-size:34px}.card h2{margin:12px 0 8px;font-size:20px;color:#0f172a}.card p{margin:0;color:#475569;font-size:14px;line-height:1.65;flex:1}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.btn{border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:10px;padding:10px 13px;font-weight:800;text-decoration:none;font-size:14px;cursor:pointer}.btn.primary{background:#16a34a;color:#fff;border-color:#16a34a}.btn.orange{background:#f97316;color:#fff;border-color:#f97316}.btn.blue{background:#2563eb;color:#fff;border-color:#2563eb}.btn:active{transform:scale(.98)}
-    .panel{margin-top:18px;background:#ffffffcc;border:1px solid #dff6e7;border-radius:22px;padding:16px;box-shadow:0 8px 20px rgba(15,23,42,.04)}.panel h3{margin:0 0 10px;color:#166534;font-size:16px}.steps{margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:1.8}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.hint{font-size:12px;color:#64748b;margin-top:10px;line-height:1.6}
-    @media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:620px){.page{padding:18px 14px 44px}.grid{grid-template-columns:1fr}h1{font-size:25px}.card{min-height:auto}}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#f0fdf4,#d1fae5);color:#0f172a;min-height:100vh}.page{max-width:1080px;margin:0 auto;padding:24px 20px 60px}.hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}h1{margin:0;font-size:30px;color:#166534}.sub{margin:8px 0 0;color:#15803d;font-size:14px;line-height:1.6}.status{display:flex;gap:8px;flex-wrap:wrap}.pill{display:inline-flex;border-radius:999px;background:#fff;border:1px solid #bbf7d0;padding:7px 12px;color:#166534;font-size:13px;font-weight:800}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:#fff;border-radius:22px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.06);display:flex;flex-direction:column;min-height:210px}.icon{font-size:34px}.card h2{margin:12px 0 8px;font-size:20px}.card p{margin:0;color:#475569;font-size:14px;line-height:1.65;flex:1}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.btn{border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:10px;padding:10px 13px;font-weight:800;text-decoration:none;font-size:14px;cursor:pointer}.btn.primary{background:#16a34a;color:#fff;border-color:#16a34a}.btn.orange{background:#f97316;color:#fff;border-color:#f97316}.btn.blue{background:#2563eb;color:#fff;border-color:#2563eb}.panel{margin-top:18px;background:#ffffffcc;border:1px solid #dff6e7;border-radius:22px;padding:16px}.panel h3{margin:0 0 10px;color:#166534;font-size:16px}.steps{margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:1.8}.mono{font-family:ui-monospace,Consolas,monospace}.hint{font-size:12px;color:#64748b;margin-top:10px}@media(max-width:900px){.grid{grid-template-columns:1fr}} 
   </style>
 </head>
 <body>
   <main class="page">
     <section class="hero">
-      <div>
-        <h1>🌾 农场解析工具主页</h1>
-        <p class="sub">所有页面统一从这里进入：抓包解析、好友成熟时间、摘取调度、证书与说明。不需要再记多个链接。</p>
-      </div>
-      <div class="status">
-        <span class="pill" id="proxyStatus">解析服务：检测中</span>
-        <span class="pill" id="maturityStatus">成熟服务：需启动</span>
-      </div>
+      <div><h1>🌾 农场解析工具主页</h1><p class="sub">所有页面统一从这里进入：抓包解析、好友成熟时间、摘取调度、证书与说明。</p></div>
+      <div class="status"><span class="pill" id="proxyStatus">解析服务：检测中</span><span class="pill" id="maturityStatus">成熟服务：检测中</span></div>
     </section>
-
     <section class="grid">
-      <article class="card">
-        <div class="icon">📡</div>
-        <h2>抓包解析 / 变异查看</h2>
-        <p>原主页面。开启系统代理、下载证书、解析农场 WebSocket 数据，展示好友农场和自己农场的土地、作物与变异信息。</p>
-        <div class="actions">
-          <a class="btn primary" href="/proxy.html">进入解析页面</a>
-          <a class="btn" href="/ca.cer" download>下载证书</a>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="icon">⏰</div>
-        <h2>成熟时间 / 好友作物</h2>
-        <p>查看 SQLite 中记录的好友 GID、农作物、土地、成熟时间、倒计时与可摘状态。成熟时间服务默认运行在 8790 端口。</p>
-        <div class="actions">
-          <button class="btn orange" onclick="openMaturity()">进入成熟时间页面</button>
-          <button class="btn" onclick="openMaturityApi()">查看服务状态</button>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="icon">🧺</div>
-        <h2>摘取调度 / 视觉队列</h2>
-        <p>同一个成熟时间页面中包含摘取任务。规则是提前 5 分钟访问好友校准，最后 1 分钟连续点击收取坐标，完成后回访刷新。</p>
-        <div class="actions">
-          <button class="btn blue" onclick="openMaturityTasks()">查看摘取任务</button>
-          <a class="btn" href="/README.maturity.md">调度说明</a>
-        </div>
-      </article>
+      <article class="card"><div class="icon">📡</div><h2>抓包解析 / 变异查看</h2><p>开启系统代理、下载证书、解析农场 WebSocket 数据，展示土地、作物、成熟时间、数量和变异信息。</p><div class="actions"><a class="btn primary" href="/proxy.html">进入解析页面</a><a class="btn" href="/ca.cer" download>下载证书</a></div></article>
+      <article class="card"><div class="icon">⏰</div><h2>成熟时间 / 好友作物</h2><p>查看 SQLite 中记录的好友 GID、农作物、土地、成熟时间、倒计时与可摘状态。</p><div class="actions"><a class="btn orange" href="/maturity.html">进入成熟时间页面</a><a class="btn" href="/api/maturity/status" target="_blank">查看服务状态</a></div></article>
+      <article class="card"><div class="icon">🧺</div><h2>摘取调度 / 视觉队列</h2><p>同一个成熟时间页面中包含摘取任务。提前 5 分钟访问好友校准，最后 1 分钟连续点击收取坐标。</p><div class="actions"><a class="btn blue" href="/maturity.html#tasks">查看摘取任务</a><a class="btn" href="/README.maturity.md">调度说明</a></div></article>
     </section>
-
-    <section class="panel">
-      <h3>推荐启动顺序</h3>
-      <ol class="steps">
-        <li>启动原解析服务：<span class="mono">npm start</span>，然后从本页进入「抓包解析」。</li>
-        <li>另开终端启动成熟时间服务：<span class="mono">npm run maturity</span>，然后从本页进入「成熟时间 / 好友作物」。</li>
-        <li>后续视觉自动化只需要对接成熟时间服务的本地命令队列，不直接发送游戏协议请求。</li>
-      </ol>
-      <div class="hint">如果你通过局域网 IP 访问本页，成熟时间链接会自动使用同一个主机名并切换到 8790 端口。</div>
-    </section>
+    <section class="panel"><h3>启动方式</h3><ol class="steps"><li>执行 <span class="mono">npm start</span>。</li><li>打开 <span class="mono">http://127.0.0.1:8787/</span>，从卡片进入各功能。</li><li>所有页面和 API 默认都从同一个前台端口访问。</li></ol><div class="hint">内部仍会有一个隐藏解析服务端口，由启动器自动管理，平时不需要打开。</div></section>
   </main>
-
   <script>
-    function maturityBase() {
-      const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
-      return `${protocol}//${location.hostname}:8790`;
+    async function refreshStatus(){
+      try{const r=await fetch('/api/status');const s=await r.json();document.getElementById('proxyStatus').textContent=`解析服务：${s.proxyReady?'已启动':'待启动'} · 帧 ${s.parsedFrames}/${s.totalFrames}`;}catch{document.getElementById('proxyStatus').textContent='解析服务：不可用';}
+      try{const r=await fetch('/api/maturity/status');const s=await r.json();document.getElementById('maturityStatus').textContent=`成熟服务：已启动 · ${s.streamConnected?'已连接解析流':'等待解析流'}`;}catch{document.getElementById('maturityStatus').textContent='成熟服务：不可用';}
     }
-    function openMaturity() { location.href = `${maturityBase()}/maturity.html`; }
-    function openMaturityApi() { window.open(`${maturityBase()}/api/maturity/status`, '_blank'); }
-    function openMaturityTasks() { location.href = `${maturityBase()}/maturity.html#tasks`; }
-
-    async function refreshProxyStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        document.getElementById('proxyStatus').textContent = `解析服务：${data.proxyReady ? '已启动' : '待启动'} · 帧 ${data.parsedFrames}/${data.totalFrames}`;
-      } catch {
-        document.getElementById('proxyStatus').textContent = '解析服务：不可用';
-      }
-    }
-
-    function refreshMaturityHint() {
-      document.getElementById('maturityStatus').textContent = '成熟服务：8790 端口';
-    }
-
-    refreshProxyStatus();
-    refreshMaturityHint();
-    setInterval(refreshProxyStatus, 3000);
+    refreshStatus();setInterval(refreshStatus,3000);
   </script>
 </body>
 </html>
