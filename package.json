@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node proxy-server.js",
     "proxy": "node proxy-server.js",
-    "check": "node --check proxy-server.js",
+    "maturity": "node maturity-server.js",
+    "check": "node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js",
     "build": "node build.js",
     "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v1.0.0.exe",
     "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v1.0.0"
@@ -31,6 +32,7 @@
     "express": "^5.2.1",
     "http-mitm-proxy": "^1.1.0",
     "protobufjs": "^8.2.0",
+    "sql.js": "^1.13.0",
     "ws": "^8.20.1"
   },
   "devDependencies": {
@@ -43,11 +45,14 @@
       "auth.html",
       "index.html",
       "proxy.html",
+      "maturity.html",
       "README.use.md",
+      "README.maturity.md",
       "js/**/*.js",
       "lib/**/*.js",
       "proto/**/*.proto",
-      "data/**/*.json"
+      "data/**/*.json",
+      "node_modules/sql.js/dist/sql-wasm.wasm"
     ],
     "targets": [
       "node18-win-x64",
