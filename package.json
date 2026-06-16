@@ -12,7 +12,7 @@
     "proxy": "node proxy-server.js",
     "maturity": "node maturity-server.js",
     "start:all": "node start-all.js",
-    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js && node --check notify/pushplus.js && node --check js/maturity-core.js && node --check js/maturity-extra.js && node --check js/maturity-detail.js",
+    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js && node --check notify/pushplus.js && node --check js/maturity-api-fallback.js && node --check js/proxy-page-fixes.js && node --check js/maturity-core.js && node --check js/maturity-extra.js && node --check js/maturity-detail.js",
     "build": "node build.js",
     "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v2.0.0.exe",
     "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v2.0.0"
