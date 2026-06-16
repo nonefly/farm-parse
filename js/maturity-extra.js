@@ -39,11 +39,14 @@ function maturityShortTime(ms) {
 
 function maturityIsPickable(land, now = Date.now()) {
   const matureAt = Number(land?.mature_at || 0);
+  const left = Number(land?.left_fruit_num || 0);
+  const total = Number(land?.fruit_num || 0);
   return Number(land?.has_plant) === 1
     && matureAt > 0
     && matureAt <= now
     && Number(land?.stealable) === 1
-    && Number(land?.left_fruit_num || 0) > 0;
+    && total > 0
+    && left > total * 0.7;
 }
 
 function plantIcon(name) {
