@@ -73,18 +73,25 @@ async function maturityGetFriendDetail(gid) {
   return maturityApi(`/api/maturity/friends/${encodeURIComponent(gid)}`);
 }
 
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    const btn = document.createElement('span');
-    btn.textContent = '✓';
-    btn.style.color = '#16a34a';
-    btn.style.marginLeft = '4px';
-    btn.style.fontWeight = 'bold';
-    return btn;
-  } catch {
-    return null;
-  }
+function copyFriendName(event, button, name) {
+  event.stopPropagation();
+  navigator.clipboard.writeText(name || '').then(() => {
+    const oldText = button.textContent;
+    button.textContent = '✓';
+    button.classList.add('done');
+    setTimeout(() => {
+      button.textContent = oldText || '复制';
+      button.classList.remove('done');
+    }, 1100);
+  }).catch(() => {
+    button.textContent = '×';
+    setTimeout(() => { button.textContent = '复制'; }, 1100);
+  });
+}
+
+function friendNameCell(friend) {
+  const name = friend.name || '未知';
+  return `<b>${maturityEsc(name)}</b><button class="copy-name-btn" data-name="${maturityEsc(name)}" onclick="copyFriendName(event,this,this.dataset.name)" title="复制好友名称">复制</button>`;
 }
 
 function applyFriendNameSearch() {
@@ -104,7 +111,7 @@ function applyFriendNameSearch() {
   if (hint) hint.textContent = q ? `匹配 ${rows.length} 个好友（最多显示12条）` : `最近成熟的 ${rows.length} 个好友`;
   body.innerHTML = rows.map(f => {
     const next = Number(f.next_mature_at || 0);
-    return `<tr onclick="selectFriend('${maturityEsc(f.gid)}')"><td><b>${maturityEsc(f.name || '未知')}</b></td><td class="dim">${maturityEsc(f.gid)}</td><td>${f.plant_total || 0}</td><td class="ready">${f.mature_pickable_total ?? f.stealable_total ?? 0}</td><td>${maturityFmtTime(next)}</td><td>${maturityFmtCountdown(next)}</td><td>${maturityFmtTime(f.last_seen_at)}</td></tr>`;
+    return `<tr onclick="selectFriend('${maturityEsc(f.gid)}')"><td>${friendNameCell(f)}</td><td class="dim">${maturityEsc(f.gid)}</td><td>${f.plant_total || 0}</td><td class="ready">${f.mature_pickable_total ?? f.stealable_total ?? 0}</td><td>${maturityFmtTime(next)}</td><td>${maturityFmtCountdown(next)}</td><td>${maturityFmtTime(f.last_seen_at)}</td></tr>`;
   }).join('') || '<tr><td colspan="7" class="dim">没有匹配好友</td></tr>';
 }
 
@@ -142,7 +149,7 @@ async function searchCropByName() {
   }
   const rows = [...groups.values()].sort((a, b) => (a.earliest || 9999999999999) - (b.earliest || 9999999999999));
   if (hint) hint.textContent = `匹配 ${rows.length} 个好友/作物组合`;
-  body.innerHTML = rows.map(r => `<tr onclick="selectFriend('${maturityEsc(r.friend.gid)}')"><td><b>${maturityEsc(r.friend.name || '未知')}</b><br><span class="dim">${maturityEsc(r.friend.gid)}</span></td><td>${plantIcon(r.name)} ${maturityEsc(r.name)}</td><td>${maturityEsc(r.landIds.join(', '))}</td><td>${maturityShortTime(r.earliest)}</td><td class="${r.earliest && r.earliest <= now ? 'ready' : ''}">${maturityFmtCountdown(r.earliest)}</td><td>${r.pickableCount}/${r.matureCount}</td></tr>`).join('') || '<tr><td colspan="6" class="dim">没有找到该农作物</td></tr>';
+  body.innerHTML = rows.map(r => `<tr onclick="selectFriend('${maturityEsc(r.friend.gid)}')"><td>${friendNameCell(r.friend)}<br><span class="dim">${maturityEsc(r.friend.gid)}</span></td><td>${plantIcon(r.name)} ${maturityEsc(r.name)}</td><td>${maturityEsc(r.landIds.join(', '))}</td><td>${maturityShortTime(r.earliest)}</td><td class="${r.earliest && r.earliest <= now ? 'ready' : ''}">${maturityFmtCountdown(r.earliest)}</td><td>${r.pickableCount}/${r.matureCount}</td></tr>`).join('') || '<tr><td colspan="6" class="dim">没有找到该农作物</td></tr>';
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
