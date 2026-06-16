@@ -27,6 +27,15 @@ function safeJson(value, fallback = {}) {
   try { return JSON.parse(value || '{}'); } catch { return fallback; }
 }
 
+function isMaturePickable(land, nowMs = Date.now()) {
+  const matureAt = Number(land?.mature_at || 0);
+  return Number(land?.has_plant) === 1
+    && matureAt > 0
+    && matureAt <= nowMs
+    && Number(land?.stealable) === 1
+    && Number(land?.left_fruit_num || 0) > 0;
+}
+
 function connectFarmParseStream() {
   const streamUrl = new URL('/api/stream', FARM_PARSE_BASE_URL);
   const transport = streamUrl.protocol === 'https:' ? https : http;
@@ -159,7 +168,15 @@ function startHttpServer() {
     });
   });
   app.post('/api/maturity/scheduler/toggle', (req, res) => { state.schedulerEnabled = req.body?.enabled === true; res.json({ enabled: state.schedulerEnabled }); });
-  app.get('/api/maturity/friends', (_, res) => res.json(farmDb.listFriends()));
+  app.get('/api/maturity/friends', (_, res) => {
+    const nowMs = Date.now();
+    const rows = farmDb.listFriends(nowMs).map(friend => {
+      const lands = farmDb.listFriendLands(friend.gid);
+      const maturePickableTotal = lands.filter(land => isMaturePickable(land, nowMs)).length;
+      return { ...friend, stealable_total: maturePickableTotal, mature_pickable_total: maturePickableTotal };
+    });
+    res.json(rows);
+  });
   app.get('/api/maturity/friends/:gid', (req, res) => {
     const friend = farmDb.getFriend(req.params.gid);
     if (!friend) return res.status(404).json({ message: 'friend not found' });
