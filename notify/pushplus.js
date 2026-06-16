@@ -1,7 +1,12 @@
 const DEFAULT_SEND_URL = 'https://www.pushplus.plus/send';
 
-function isEnabled() {
-  return Boolean(process.env.PUSHPLUS_TOKEN) && process.env.PUSHPLUS_ENABLED !== 'false';
+function getToken(options = {}) {
+  return String(options.token || process.env.PUSHPLUS_TOKEN || '').trim();
+}
+
+function isEnabled(options = {}) {
+  if (options.enabled === false) return false;
+  return Boolean(getToken(options)) && process.env.PUSHPLUS_ENABLED !== 'false';
 }
 
 function escapeHtml(value) {
@@ -14,12 +19,12 @@ function escapeHtml(value) {
   }[ch]));
 }
 
-async function sendPushPlus({ title, content, template = 'html', channel } = {}) {
-  if (!isEnabled()) return { skipped: true, reason: 'PUSHPLUS_TOKEN is empty or disabled' };
+async function sendPushPlus({ title, content, template = 'html', channel, token } = {}) {
+  const actualToken = getToken({ token });
+  if (!actualToken || process.env.PUSHPLUS_ENABLED === 'false') return { skipped: true, reason: 'PushPlus token is empty or disabled' };
 
-  const token = process.env.PUSHPLUS_TOKEN;
   const body = {
-    token,
+    token: actualToken,
     title: title || '农场提醒',
     content: content || '',
     template,
@@ -60,6 +65,8 @@ async function sendFarmReminder(payload) {
     title: payload.title || '农场成熟提醒',
     content: renderFarmMessage(payload),
     template: 'html',
+    token: payload.token,
+    channel: payload.channel,
   });
 }
 
@@ -67,4 +74,5 @@ module.exports = {
   isEnabled,
   sendPushPlus,
   sendFarmReminder,
+  escapeHtml,
 };
