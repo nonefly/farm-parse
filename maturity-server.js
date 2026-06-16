@@ -215,21 +215,58 @@ function listUpcomingPushplusItems(cfg, nowMs = Date.now()) {
   return items.sort((a, b) => a.matureAt - b.matureAt || String(a.friendName).localeCompare(String(b.friendName), 'zh-CN') || a.landId - b.landId);
 }
 
+function groupPushplusItemsByFriend(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = item.friendGid || item.friendName || 'unknown';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        friendGid: item.friendGid,
+        friendName: item.friendName,
+        plantCounts: new Map(),
+        landIds: [],
+        count: 0,
+        totalLeft: 0,
+        totalFruit: 0,
+        earliest: Number(item.matureAt || 0),
+      });
+    }
+    const group = groups.get(key);
+    const plantName = item.plantName || String(item.plantId || '未知作物');
+    group.plantCounts.set(plantName, (group.plantCounts.get(plantName) || 0) + 1);
+    group.landIds.push(`#${item.landId}`);
+    group.count += 1;
+    group.totalLeft += Number(item.leftFruitNum || 0);
+    group.totalFruit += Number(item.fruitNum || 0);
+    const matureAt = Number(item.matureAt || 0);
+    if (matureAt && (!group.earliest || matureAt < group.earliest)) group.earliest = matureAt;
+  }
+  return [...groups.values()].sort((a, b) => a.earliest - b.earliest || String(a.friendName).localeCompare(String(b.friendName), 'zh-CN'));
+}
+
+function formatPushplusPlantCounts(plantCounts) {
+  return [...plantCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]), 'zh-CN'))
+    .map(([name, count]) => `${escapeHtml(name)}${count > 1 ? `×${count}` : ''}`)
+    .join('<br>');
+}
+
 function renderPushplusBatchMessage(items, cfg, nowMs = Date.now()) {
   const endMs = nowMs + Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS);
   const intervalText = formatDuration(Number(cfg.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS));
   const windowText = formatDuration(Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS));
-  const rows = items.map(item => {
-    const matureText = new Date(Number(item.matureAt)).toLocaleTimeString();
-    const leftText = item.fruitNum ? `${item.leftFruitNum}/${item.fruitNum}` : '-';
-    return `<tr><td>${escapeHtml(item.friendName || item.friendGid)}</td><td>${escapeHtml(item.plantName || item.plantId)}</td><td>#${escapeHtml(item.landId)}</td><td>${escapeHtml(matureText)}</td><td>${escapeHtml(formatDuration(item.matureAt - nowMs))}</td><td>${escapeHtml(leftText)}</td></tr>`;
+  const groups = groupPushplusItemsByFriend(items);
+  const rows = groups.map(group => {
+    const matureText = group.earliest ? new Date(Number(group.earliest)).toLocaleTimeString() : '-';
+    const leftText = group.totalFruit ? `${group.totalLeft}/${group.totalFruit}` : '-';
+    return `<tr><td>${escapeHtml(group.friendName || group.friendGid || '-')}</td><td>${formatPushplusPlantCounts(group.plantCounts)}</td><td>${escapeHtml(group.landIds.join(', '))}</td><td>${escapeHtml(matureText)}</td><td>${escapeHtml(formatDuration(group.earliest - nowMs))}</td><td>${escapeHtml(`${group.count}块 · ${leftText}`)}</td></tr>`;
   }).join('');
   return `
     <h3>农作物即将成熟</h3>
     <p>时间窗口：${escapeHtml(new Date(nowMs).toLocaleTimeString())} - ${escapeHtml(new Date(endMs).toLocaleTimeString())}</p>
-    <p>匹配到 <b>${items.length}</b> 块地。当前配置：每 ${escapeHtml(intervalText)} 合并推送一次，推送后续 ${escapeHtml(windowText)} 内成熟的信息。</p>
+    <p>匹配到 <b>${items.length}</b> 块地，已按好友合并为 <b>${groups.length}</b> 条。当前配置：每 ${escapeHtml(intervalText)} 合并推送一次，推送后续 ${escapeHtml(windowText)} 内成熟的信息。</p>
     <table border="1" cellpadding="6" cellspacing="0">
-      <thead><tr><th>好友</th><th>作物</th><th>地块</th><th>成熟</th><th>倒计时</th><th>剩余</th></tr></thead>
+      <thead><tr><th>好友</th><th>作物</th><th>地块</th><th>最早成熟</th><th>倒计时</th><th>合计</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
@@ -244,18 +281,19 @@ async function runPushplusBatchNotification({ force = false } = {}) {
   }
   const items = listUpcomingPushplusItems(cfg, nowMs);
   if (!items.length) return { skipped: true, reason: 'no upcoming items', items: [] };
+  const groups = groupPushplusItemsByFriend(items);
   const content = renderPushplusBatchMessage(items, cfg, nowMs);
   const result = await pushplus.sendPushPlus({
     token: cfg.token,
     channel: cfg.channel || 'wechat',
-    title: `农作物即将成熟（${items.length}块）`,
+    title: `农作物即将成熟（${groups.length}好友/${items.length}块）`,
     content,
     template: 'html',
   });
   cfg.lastSentAt = nowMs;
   writePushplusConfig(cfg);
-  farmDb.addLog('info', `PushPlus 合并推送 ${items.length} 条成熟提醒`, { count: items.length });
-  return { ok: true, result, count: items.length };
+  farmDb.addLog('info', `PushPlus 合并推送 ${groups.length} 个好友/${items.length} 块地提醒`, { friendCount: groups.length, count: items.length });
+  return { ok: true, result, friendCount: groups.length, count: items.length };
 }
 
 function connectFarmParseStream() {
@@ -440,7 +478,7 @@ function startHttpServer() {
     const cfg = readPushplusConfig({ includeToken: true });
     const nowMs = Date.now();
     const items = listUpcomingPushplusItems(cfg, nowMs).map(item => ({ ...item, matureAtText: new Date(item.matureAt).toLocaleString(), countdown: formatDuration(item.matureAt - nowMs) }));
-    res.json({ items, count: items.length, config: readPushplusConfig() });
+    res.json({ items, count: items.length, groups: groupPushplusItemsByFriend(items), config: readPushplusConfig() });
   });
   app.post('/api/maturity/pushplus/test', async (_, res) => {
     try {
