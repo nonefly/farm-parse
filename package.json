@@ -4,9 +4,6 @@
   "description": "Farm Parse desktop shell and maturity reminder dashboard",
   "main": "electron-main.js",
   "bin": "start-all.js",
-  "directories": {
-    "lib": "lib"
-  },
   "scripts": {
     "start": "node start-all.js",
     "proxy": "node proxy-server.js",
