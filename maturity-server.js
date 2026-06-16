@@ -3,6 +3,7 @@
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const os = require('os');
 const path = require('path');
 const express = require('express');
 const farmDb = require('./lib/farm-db');
@@ -14,6 +15,8 @@ const FARM_PARSE_BASE_URL = process.env.FARM_PARSE_BASE_URL || 'http://127.0.0.1
 const PRECHECK_BEFORE_MS = Number(process.env.FARM_PRECHECK_BEFORE_MS || 5 * 60 * 1000);
 const HARVEST_LOOP_BEFORE_MS = Number(process.env.FARM_HARVEST_LOOP_BEFORE_MS || 60 * 1000);
 const SCHEDULER_INTERVAL_MS = Number(process.env.FARM_SCHEDULER_INTERVAL_MS || 5000);
+const PUSHPLUS_BATCH_INTERVAL_MS = 30 * 60 * 1000;
+const PUSHPLUS_BATCH_WINDOW_MS = 30 * 60 * 1000;
 
 const state = {
   startedAt: Date.now(),
@@ -26,6 +29,96 @@ const state = {
 
 function safeJson(value, fallback = {}) {
   try { return JSON.parse(value || '{}'); } catch { return fallback; }
+}
+
+function appDataDir() {
+  return process.pkg ? path.join(os.homedir(), '.farm-parse') : path.join(__dirname, '.farm-parse');
+}
+
+function pushplusConfigFile() {
+  const dir = appDataDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'pushplus-config.json');
+}
+
+function defaultPushplusConfig() {
+  return {
+    enabled: false,
+    token: '',
+    channel: 'wechat',
+    friendFilters: [],
+    cropFilters: [],
+    intervalMs: PUSHPLUS_BATCH_INTERVAL_MS,
+    windowMs: PUSHPLUS_BATCH_WINDOW_MS,
+    lastSentAt: 0,
+    updatedAt: 0,
+  };
+}
+
+function normalizeFilterList(value) {
+  const raw = Array.isArray(value) ? value : String(value || '').split(/[\n,，;；]+/);
+  return [...new Set(raw.map(v => String(v || '').trim()).filter(Boolean))];
+}
+
+function normalizePushplusConfig(config = {}) {
+  const base = defaultPushplusConfig();
+  return {
+    ...base,
+    ...config,
+    enabled: config.enabled === true || config.enabled === 1 || config.enabled === 'true',
+    token: String(config.token || '').trim(),
+    channel: String(config.channel || 'wechat').trim() || 'wechat',
+    friendFilters: normalizeFilterList(config.friendFilters),
+    cropFilters: normalizeFilterList(config.cropFilters),
+    intervalMs: Number(config.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS) || PUSHPLUS_BATCH_INTERVAL_MS,
+    windowMs: Number(config.windowMs || PUSHPLUS_BATCH_WINDOW_MS) || PUSHPLUS_BATCH_WINDOW_MS,
+    lastSentAt: Number(config.lastSentAt || 0) || 0,
+    updatedAt: Number(config.updatedAt || 0) || 0,
+  };
+}
+
+function readPushplusConfig({ includeToken = false } = {}) {
+  const file = pushplusConfigFile();
+  let cfg = defaultPushplusConfig();
+  if (fs.existsSync(file)) cfg = normalizePushplusConfig(safeJson(fs.readFileSync(file, 'utf8'), cfg));
+  cfg = normalizePushplusConfig(cfg);
+  if (process.env.PUSHPLUS_TOKEN && !cfg.token) cfg.token = process.env.PUSHPLUS_TOKEN;
+  const publicCfg = { ...cfg };
+  publicCfg.tokenSet = Boolean(cfg.token);
+  publicCfg.tokenMasked = cfg.token ? `${cfg.token.slice(0, 4)}****${cfg.token.slice(-4)}` : '';
+  if (!includeToken) delete publicCfg.token;
+  return publicCfg;
+}
+
+function writePushplusConfig(config) {
+  const cfg = normalizePushplusConfig(config);
+  fs.writeFileSync(pushplusConfigFile(), JSON.stringify(cfg, null, 2));
+  return cfg;
+}
+
+function savePushplusConfig(input = {}) {
+  const current = readPushplusConfig({ includeToken: true });
+  const next = {
+    ...current,
+    enabled: input.enabled === true,
+    channel: String(input.channel || current.channel || 'wechat').trim() || 'wechat',
+    friendFilters: normalizeFilterList(input.friendFilters),
+    cropFilters: normalizeFilterList(input.cropFilters),
+    intervalMs: PUSHPLUS_BATCH_INTERVAL_MS,
+    windowMs: PUSHPLUS_BATCH_WINDOW_MS,
+    updatedAt: Date.now(),
+  };
+  const token = String(input.token || '').trim();
+  if (input.clearToken === true) next.token = '';
+  else if (token) next.token = token;
+  writePushplusConfig(next);
+  return readPushplusConfig();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
 }
 
 function isMaturePickable(land, nowMs = Date.now()) {
@@ -55,6 +148,85 @@ function notifyFarm(title, payload, note) {
     console.warn('[maturity] PushPlus 推送失败:', error.message);
     try { farmDb.addLog('warn', `PushPlus 推送失败: ${error.message}`); } catch {}
   });
+}
+
+function pushplusItemMatches(item, cfg) {
+  const friendFilters = normalizeFilterList(cfg.friendFilters).map(v => v.toLowerCase());
+  const cropFilters = normalizeFilterList(cfg.cropFilters).map(v => v.toLowerCase());
+  if (!friendFilters.length && !cropFilters.length) return true;
+  const friendName = String(item.friendName || '').toLowerCase();
+  const friendGid = String(item.friendGid || '').toLowerCase();
+  const plantName = String(item.plantName || '').toLowerCase();
+  const plantId = String(item.plantId || '').toLowerCase();
+  const friendMatched = friendFilters.some(filter => friendGid === filter || friendName.includes(filter));
+  const cropMatched = cropFilters.some(filter => plantId === filter || plantName.includes(filter));
+  return friendMatched || cropMatched;
+}
+
+function listUpcomingPushplusItems(cfg, nowMs = Date.now()) {
+  const endMs = nowMs + Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS);
+  const items = [];
+  for (const friend of farmDb.listFriends(nowMs)) {
+    for (const land of farmDb.listFriendLands(friend.gid)) {
+      const matureAt = Number(land.mature_at || 0);
+      if (Number(land.has_plant) !== 1) continue;
+      if (!matureAt || matureAt <= nowMs || matureAt > endMs) continue;
+      if (Number(land.phase) === 7) continue;
+      const item = {
+        friendGid: String(friend.gid),
+        friendName: friend.name || '',
+        landId: Number(land.land_id),
+        plantId: Number(land.plant_id || 0),
+        plantName: land.plant_name || '',
+        matureAt,
+        leftFruitNum: Number(land.left_fruit_num || 0),
+        fruitNum: Number(land.fruit_num || 0),
+      };
+      if (pushplusItemMatches(item, cfg)) items.push(item);
+    }
+  }
+  return items.sort((a, b) => a.matureAt - b.matureAt || String(a.friendName).localeCompare(String(b.friendName), 'zh-CN') || a.landId - b.landId);
+}
+
+function renderPushplusBatchMessage(items, cfg, nowMs = Date.now()) {
+  const endMs = nowMs + Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS);
+  const rows = items.map(item => {
+    const matureText = new Date(Number(item.matureAt)).toLocaleTimeString();
+    const leftText = item.fruitNum ? `${item.leftFruitNum}/${item.fruitNum}` : '-';
+    return `<tr><td>${escapeHtml(item.friendName || item.friendGid)}</td><td>${escapeHtml(item.plantName || item.plantId)}</td><td>#${escapeHtml(item.landId)}</td><td>${escapeHtml(matureText)}</td><td>${escapeHtml(formatDuration(item.matureAt - nowMs))}</td><td>${escapeHtml(leftText)}</td></tr>`;
+  }).join('');
+  return `
+    <h3>农作物即将成熟</h3>
+    <p>时间窗口：${escapeHtml(new Date(nowMs).toLocaleTimeString())} - ${escapeHtml(new Date(endMs).toLocaleTimeString())}</p>
+    <p>匹配到 <b>${items.length}</b> 块地。每半小时合并推送一次。</p>
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead><tr><th>好友</th><th>作物</th><th>地块</th><th>成熟</th><th>倒计时</th><th>剩余</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+async function runPushplusBatchNotification({ force = false } = {}) {
+  const cfg = readPushplusConfig({ includeToken: true });
+  if (!cfg.enabled || !cfg.token) return { skipped: true, reason: 'disabled or token empty' };
+  const nowMs = Date.now();
+  if (!force && cfg.lastSentAt && nowMs - Number(cfg.lastSentAt) < Number(cfg.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS)) {
+    return { skipped: true, reason: 'interval not reached' };
+  }
+  const items = listUpcomingPushplusItems(cfg, nowMs);
+  if (!items.length) return { skipped: true, reason: 'no upcoming items', items: [] };
+  const content = renderPushplusBatchMessage(items, cfg, nowMs);
+  const result = await pushplus.sendPushPlus({
+    token: cfg.token,
+    channel: cfg.channel || 'wechat',
+    title: `农作物即将成熟（${items.length}块）`,
+    content,
+    template: 'html',
+  });
+  cfg.lastSentAt = nowMs;
+  writePushplusConfig(cfg);
+  farmDb.addLog('info', `PushPlus 合并推送 ${items.length} 条成熟提醒`, { count: items.length });
+  return { ok: true, result, count: items.length };
 }
 
 function connectFarmParseStream() {
@@ -182,12 +354,13 @@ function startHttpServer() {
   app.use('/api/maturity', express.json({ limit: '1mb' }));
 
   app.get('/api/maturity/status', (_, res) => {
+    const cfg = readPushplusConfig();
     res.json({
       ...state,
       uptimeMs: Date.now() - state.startedAt,
       farmParseBaseUrl: FARM_PARSE_BASE_URL,
       unifiedPort: HTTP_PORT,
-      notify: { pushplus: pushplus.isEnabled() },
+      notify: { pushplus: cfg.enabled && cfg.tokenSet, pushplusConfig: cfg },
       scheduler: { enabled: state.schedulerEnabled, precheckBeforeMs: PRECHECK_BEFORE_MS, harvestLoopBeforeMs: HARVEST_LOOP_BEFORE_MS, intervalMs: SCHEDULER_INTERVAL_MS },
     });
   });
@@ -232,6 +405,24 @@ function startHttpServer() {
     res.json({ removed });
   });
 
+  app.get('/api/maturity/pushplus/config', (_, res) => res.json(readPushplusConfig()));
+  app.post('/api/maturity/pushplus/config', (req, res) => res.json(savePushplusConfig(req.body || {})));
+  app.get('/api/maturity/pushplus/preview', (_, res) => {
+    const cfg = readPushplusConfig({ includeToken: true });
+    const items = listUpcomingPushplusItems(cfg, Date.now()).map(item => ({ ...item, matureAtText: new Date(item.matureAt).toLocaleString(), countdown: formatDuration(item.matureAt - Date.now()) }));
+    res.json({ items, count: items.length, config: readPushplusConfig() });
+  });
+  app.post('/api/maturity/pushplus/test', async (_, res) => {
+    try {
+      const cfg = readPushplusConfig({ includeToken: true });
+      if (!cfg.token) return res.status(400).json({ message: 'PushPlus token 为空，请先保存 token' });
+      const result = await pushplus.sendPushPlus({ token: cfg.token, channel: cfg.channel, title: 'Farm Parse PushPlus 测试', content: '<h3>PushPlus 配置成功</h3><p>后续会每半小时合并推送接下来半小时即将成熟的农作物。</p>', template: 'html' });
+      res.json({ ok: true, result });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
   app.get('/proxy.html', (_, res) => sendProxyHtmlWithFixes(res));
   app.use(express.static(__dirname));
@@ -242,12 +433,13 @@ function startHttpServer() {
   });
 
   app.listen(HTTP_PORT, '0.0.0.0', () => {
+    const cfg = readPushplusConfig();
     console.log('========================================');
     console.log('Farm Parse 统一入口已启动');
     console.log(`主页: http://127.0.0.1:${HTTP_PORT}/`);
     console.log(`成熟时间页: http://127.0.0.1:${HTTP_PORT}/maturity.html`);
     console.log(`内部 farm-parse: ${FARM_PARSE_BASE_URL}`);
-    console.log(`PushPlus 通知: ${pushplus.isEnabled() ? '已启用' : '未启用，设置 PUSHPLUS_TOKEN 后开启'}`);
+    console.log(`PushPlus 合并推送: ${cfg.enabled && cfg.tokenSet ? '已启用' : '未启用，进入成熟时间页配置'}`);
     console.log('========================================');
   });
 }
@@ -257,6 +449,8 @@ async function main() {
   startHttpServer();
   connectFarmParseStream();
   setInterval(schedulerTick, SCHEDULER_INTERVAL_MS);
+  setTimeout(() => runPushplusBatchNotification().catch(error => console.warn('[maturity] PushPlus 合并推送失败:', error.message)), 10000);
+  setInterval(() => runPushplusBatchNotification().catch(error => console.warn('[maturity] PushPlus 合并推送失败:', error.message)), 60000);
 }
 
 main().catch(error => {
