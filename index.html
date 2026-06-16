@@ -1,122 +1,104 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="h-full">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
-  <title>农场变异查看器</title>
+  <title>农场解析工具</title>
   <style>
-    *{box-sizing:border-box}html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif}body{margin:0;font-family:inherit;line-height:inherit}
-    .bg-gradient-to-br{background:linear-gradient(to bottom right, var(--tw-gradient-stops))}.from-green-50{--tw-gradient-from:#f0fdf4;--tw-gradient-stops:#f0fdf4,var(--tw-gradient-to)}.to-emerald-100{--tw-gradient-to:#d1fae5}
-    .min-h-screen{min-height:100vh}.h-full{height:100%}.max-w-3xl{max-width:48rem}.mx-auto{margin-left:auto;margin-right:auto}.p-4{padding:1rem}.sm\:p-6{padding:1.5rem}@media(min-width:640px){.sm\:p-6{padding:1.5rem}}
-    .text-center{text-align:center}.mb-6{margin-bottom:1.5rem}.text-2xl{font-size:1.5rem;line-height:2rem}.sm\:text-3xl{font-size:1.875rem;line-height:2.25rem}@media(min-width:640px){.sm\:text-3xl{font-size:1.875rem;line-height:2.25rem}}
-    .font-bold{font-weight:700}.text-green-800{color:#166534}.flex{display:flex}.items-center{align-items:center}.justify-center{justify-content:center}.gap-2{gap:.5rem}.text-green-600\/70{color:rgba(22,101,52,.7)}.text-sm{font-size:.875rem;line-height:1.25rem}.mt-1{margin-top:.25rem}
-    .bg-white{background-color:#fff}.rounded-xl{border-radius:.75rem}.shadow-lg{box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1)}.p-4{padding:1rem}.sm\:p-6{padding:1.5rem}.mb-6{margin-bottom:1.5rem}
-    .bg-gray-50{background-color:#f9fafb}.rounded-lg{border-radius:.5rem}.p-3{padding:.75rem}.mb-4{margin-bottom:1rem}.font-medium{font-weight:500}.text-gray-800{color:#1f2937}.text-xs{font-size:.75rem;line-height:1rem}.text-gray-500{color:#6b7280}
-    .space-y-4{gap:1rem}.block{display:block}.text-gray-700{color:#374151}.mb-2{margin-bottom:.5rem}.w-full{width:100%}.px-4{padding-left:1rem;padding-right:1rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.border{border-width:1px}.border-gray-300{border-color:#d1d5db}
-    .focus\:ring-2{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow)}.focus\:ring-green-500{--tw-ring-color:#22c55e}
-    .focus\:border-green-500{border-color:#22c55e}.resize-none{resize:none}.font-mono{font-family:ui-monospace,monospace}.placeholder\:text-gray-400::placeholder{color:#9ca3af}
-    .flex{display:flex}.gap-3{gap:.75rem}.px-4{padding-left:1rem;padding-right:1rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.bg-green-100{background-color:#dcfce7}.text-green-700{color:#166534}.border-green-300{border-color:#86efac}
-    .hover\:bg-green-200:hover{background-color:#bbf7d0}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:150ms}.flex-1{flex:1}.bg-gradient-to-r{background:linear-gradient(to right, var(--tw-gradient-stops))}
-    .from-green-500{--tw-gradient-from:#22c55e;--tw-gradient-stops:#22c55e,var(--tw-gradient-to)}.to-emerald-600{--tw-gradient-to:#16a34a}.text-white{color:#fff}.hover\:from-green-600:hover{--tw-gradient-from:#16a34a;--tw-gradient-stops:#16a34a,var(--tw-gradient-to)}
-    .hover\:to-emerald-700:hover{--tw-gradient-to:#15803d}.shadow-md{box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1)}.hover\:shadow-lg:hover{box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1)}
-    .border-gray-300{border-color:#d1d5db}.text-gray-600{color:#4b5563}.hover\:bg-gray-50:hover{background-color:#f9fafb}
-    .border-b{border-bottom-width:1px}.border-gray-200{border-color:#e5e7eb}.justify-between{justify-content:space-between}.flex-wrap{flex-wrap}.gap-2{gap:.5rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-gray-600{color:#4b5563}
-    .px-3{padding-left:.75rem;padding-right:.75rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.rounded-full{border-radius:9999px}.text-xs{font-size:.75rem;line-height:1rem}.bg-red-100{background-color:#fee2e2}.text-red-700{color:#b91c1c}
-    .bg-amber-100{background-color:#fef3c7}.text-amber-700{color:#b45309}.bg-green-100{background-color:#dcfce7}.text-green-700{color:#166534}
-    .grid{display:grid}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.sm\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}@media(min-width:640px){.sm\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}}
-    .gap-4{gap:1rem}.p-4{padding:1rem}.sm\:p-6{padding:1.5rem}.border-gray-100{border-color:#f3f4f6}.text-center{text-align:center}.text-gray-700{color:#374151}
-    .col-span-1{grid-column:span 1 / span 1}.sm\:col-span-2{grid-column:span 2 / span 2}.sm\:col-span-3{grid-column:span 3 / span 3}.sm\:col-span-4{grid-column:span 4 / span 4}
-    
-    .toggle-switch{position:relative;width:60px;height:30px;background:#e5e7eb;border-radius:30px;transition:.3s;cursor:pointer}.toggle-switch.active{background:#22c55e}.toggle-switch::after{content:'';position:absolute;width:26px;height:26px;background:white;border-radius:50%;top:2px;left:2px;transition:.3s;box-shadow:0 2px 5px rgba(0,0,0,.2)}.toggle-switch.active::after{left:32px}
-    .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:white;padding:12px 24px;border-radius:30px;font-size:14px;z-index:9999;animation:slideUp .3s ease;white-space:nowrap;max-width:90%}@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-    .loading{display:inline-block;width:18px;height:18px;border:3px solid #f3f3f3;border-top:3px solid #22c55e;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-    .land-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.land-cell{aspect-ratio:1;border-radius:10px;position:relative;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border:2px solid #e5e7eb;overflow:hidden}
-    .land-cell:hover{transform:scale(1.05);z-index:10}.land-cell.locked{background:#f3f4f6;border-color:#d1d5db;color:#9ca3af}.land-cell.unlocked{background:#f0fdf4;border-color:#86efac}.land-cell.empty{background:#fef3c7;border-color:#fbbf24}.land-cell.mutant{animation:glow 2s ease-in-out infinite}
-    .land-cell.mutant-ice{background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-color:#3b82f6}.land-cell.mutant-love{background:linear-gradient(135deg,#fce7f3,#fbcfe8);border-color:#ec4899}.land-cell.mutant-dark{background:linear-gradient(135deg,#1f2937,#374151);border-color:#4b5563}
-    .land-cell.mutant-wet{background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-color:#06b6d4}.land-cell.mutant-gold{background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#eab308}.land-cell.mutant-mianmian{background:linear-gradient(135deg,#fce7f3,#e0f2fe);border-color:#f9a8d4}.land-cell.mutant-crystal{background:linear-gradient(135deg,#f3e8ff,#e9d5ff);border-color:#a855f7}
-    .land-cell.mutant-shine{background:linear-gradient(135deg,#fef9c3,#fef08a);border-color:#fbbf24}.land-cell.mutant-lucky{background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#22c55e}.land-cell.mutant-pumpkin{background:linear-gradient(135deg,#fdba74,#fb923c);border-color:#ea580c}
-    .land-cell.mutant-tower{background:linear-gradient(135deg,#ddd6fe,#c4b5fd);border-color:#7c3aed}.land-cell.mutant-ice-crystal{background:linear-gradient(135deg,#e0f2fe,#bae6fd);border-color:#0ea5e9}.land-cell.mutant-desert{background:linear-gradient(135deg,#fef3c7,#fed7aa);border-color:#d97706}
-    .land-cell.mutant-luxury{background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#f59e0b}.land-cell.mutant-snow{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#7dd3fc}@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(245,158,11,.4)}50%{box-shadow:0 0 16px rgba(245,158,11,.6)}}
-    .mutant-badge{position:absolute;top:-6px;right:-6px;background:#f59e0b;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,.2)}
-    .plant-icon{font-size:24px;line-height:1;margin-bottom:2px}.plant-name{font-size:10px;font-weight:600;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;margin-bottom:1px}
-    .land-cell.mutant-dark .plant-name,.land-cell.mutant-dark .plant-phase{color:#f9fafb !important}.land-cell:not(.mutant-dark) .plant-name{color:#374151}.plant-phase{font-size:8px;color:#6b7280;margin-bottom:1px}
-    .mutant-type-tag{font-size:8px;font-weight:500;padding:1px 4px;border-radius:4px;background:rgba(0,0,0,.1);color:#374151;margin-top:1px}.land-cell.mutant-dark .mutant-type-tag{background:rgba(255,255,255,.2);color:#f9fafb}
-    .mutant-tags{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:1px}.toast-msg{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.95);color:white;padding:12px 24px;border-radius:8px;font-size:14px;z-index:9999;animation:toastIn .3s ease,toastOut .3s ease 2s forwards}
-    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(-50%) translateY(-10px)}}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#f0fdf4,#d1fae5);color:#0f172a;min-height:100vh}
+    .page{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+    .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+    h1{margin:0;font-size:30px;color:#166534;letter-spacing:.02em}.sub{margin:8px 0 0;color:#15803d;font-size:14px;line-height:1.6}.status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#fff;border:1px solid #bbf7d0;padding:7px 12px;color:#166534;font-size:13px;font-weight:800;box-shadow:0 3px 10px rgba(15,23,42,.04)}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}.card{background:#fff;border:1px solid #e5f5ea;border-radius:22px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.06);display:flex;flex-direction:column;min-height:210px}.icon{font-size:34px}.card h2{margin:12px 0 8px;font-size:20px;color:#0f172a}.card p{margin:0;color:#475569;font-size:14px;line-height:1.65;flex:1}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.btn{border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:10px;padding:10px 13px;font-weight:800;text-decoration:none;font-size:14px;cursor:pointer}.btn.primary{background:#16a34a;color:#fff;border-color:#16a34a}.btn.orange{background:#f97316;color:#fff;border-color:#f97316}.btn.blue{background:#2563eb;color:#fff;border-color:#2563eb}.btn:active{transform:scale(.98)}
+    .panel{margin-top:18px;background:#ffffffcc;border:1px solid #dff6e7;border-radius:22px;padding:16px;box-shadow:0 8px 20px rgba(15,23,42,.04)}.panel h3{margin:0 0 10px;color:#166534;font-size:16px}.steps{margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:1.8}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.hint{font-size:12px;color:#64748b;margin-top:10px;line-height:1.6}
+    @media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:620px){.page{padding:18px 14px 44px}.grid{grid-template-columns:1fr}h1{font-size:25px}.card{min-height:auto}}
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
-  <div class="max-w-3xl mx-auto p-4 sm:p-6">
-    <div class="text-center mb-6">
-      <h1 class="text-2xl sm:text-3xl font-bold text-green-800 flex items-center justify-center gap-2">
-        <span>🌾</span> 农场变异查看器
-      </h1>
-      <p class="text-green-600/70 text-sm mt-1">解析HEX数据，查看土地变异情况</p>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
-      <div class="flex items-center justify-between bg-gray-50 rounded-lg p-3 mb-4">
-        <div>
-          <div class="font-medium text-gray-800">自动解析模式</div>
-          <div class="text-xs text-gray-500">开启后自动读取剪贴板并解析HEX数据</div>
-        </div>
-        <div class="toggle-switch" id="toggleSwitch"></div>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>🌾 农场解析工具主页</h1>
+        <p class="sub">所有页面统一从这里进入：抓包解析、好友成熟时间、摘取调度、证书与说明。不需要再记多个链接。</p>
       </div>
-
-      <form id="parseForm" class="space-y-4" onsubmit="handleParse(event)">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">HEX数据</label>
-          <textarea
-            id="hex"
-            name="hex"
-            rows="4"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none font-mono text-sm placeholder:text-gray-400"
-            placeholder="请输入农场协议HEX数据..."></textarea>
-        </div>
-        <div class="flex gap-3">
-          <button
-            type="button"
-            id="pasteBtn"
-            class="px-4 py-3 bg-green-100 text-green-700 border border-green-300 rounded-lg font-semibold hover:bg-green-200 transition-all"
-            onclick="handlePaste()"
-          >
-            📋 粘贴
-          </button>
-          <button
-            type="submit"
-            id="parseBtn"
-            class="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg"
-          >
-            🔍 解析数据
-          </button>
-          <button
-            type="button"
-            id="clearBtn"
-            class="px-6 py-3 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-            onclick="handleClear()"
-          >
-            清空
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div id="resultContainer" style="display: none;" class="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
-      <div class="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
-        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-          <span>📊</span> 解析结果
-        </h2>
-        <span id="resultStatus" class="px-3 py-1 rounded-full text-xs font-semibold"></span>
+      <div class="status">
+        <span class="pill" id="proxyStatus">解析服务：检测中</span>
+        <span class="pill" id="maturityStatus">成熟服务：需启动</span>
       </div>
-      <div id="resultContent"></div>
-    </div>
+    </section>
 
-    
+    <section class="grid">
+      <article class="card">
+        <div class="icon">📡</div>
+        <h2>抓包解析 / 变异查看</h2>
+        <p>原主页面。开启系统代理、下载证书、解析农场 WebSocket 数据，展示好友农场和自己农场的土地、作物与变异信息。</p>
+        <div class="actions">
+          <a class="btn primary" href="/proxy.html">进入解析页面</a>
+          <a class="btn" href="/ca.cer" download>下载证书</a>
+        </div>
+      </article>
 
-    <div id="toast" class="toast" style="display: none;"></div>
-  </div>
+      <article class="card">
+        <div class="icon">⏰</div>
+        <h2>成熟时间 / 好友作物</h2>
+        <p>查看 SQLite 中记录的好友 GID、农作物、土地、成熟时间、倒计时与可摘状态。成熟时间服务默认运行在 8790 端口。</p>
+        <div class="actions">
+          <button class="btn orange" onclick="openMaturity()">进入成熟时间页面</button>
+          <button class="btn" onclick="openMaturityApi()">查看服务状态</button>
+        </div>
+      </article>
 
-  <script src="js/main.js"></script>
+      <article class="card">
+        <div class="icon">🧺</div>
+        <h2>摘取调度 / 视觉队列</h2>
+        <p>同一个成熟时间页面中包含摘取任务。规则是提前 5 分钟访问好友校准，最后 1 分钟连续点击收取坐标，完成后回访刷新。</p>
+        <div class="actions">
+          <button class="btn blue" onclick="openMaturityTasks()">查看摘取任务</button>
+          <a class="btn" href="/README.maturity.md">调度说明</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h3>推荐启动顺序</h3>
+      <ol class="steps">
+        <li>启动原解析服务：<span class="mono">npm start</span>，然后从本页进入「抓包解析」。</li>
+        <li>另开终端启动成熟时间服务：<span class="mono">npm run maturity</span>，然后从本页进入「成熟时间 / 好友作物」。</li>
+        <li>后续视觉自动化只需要对接成熟时间服务的本地命令队列，不直接发送游戏协议请求。</li>
+      </ol>
+      <div class="hint">如果你通过局域网 IP 访问本页，成熟时间链接会自动使用同一个主机名并切换到 8790 端口。</div>
+    </section>
+  </main>
+
+  <script>
+    function maturityBase() {
+      const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
+      return `${protocol}//${location.hostname}:8790`;
+    }
+    function openMaturity() { location.href = `${maturityBase()}/maturity.html`; }
+    function openMaturityApi() { window.open(`${maturityBase()}/api/maturity/status`, '_blank'); }
+    function openMaturityTasks() { location.href = `${maturityBase()}/maturity.html#tasks`; }
+
+    async function refreshProxyStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('proxyStatus').textContent = `解析服务：${data.proxyReady ? '已启动' : '待启动'} · 帧 ${data.parsedFrames}/${data.totalFrames}`;
+      } catch {
+        document.getElementById('proxyStatus').textContent = '解析服务：不可用';
+      }
+    }
+
+    function refreshMaturityHint() {
+      document.getElementById('maturityStatus').textContent = '成熟服务：8790 端口';
+    }
+
+    refreshProxyStatus();
+    refreshMaturityHint();
+    setInterval(refreshProxyStatus, 3000);
+  </script>
 </body>
 </html>
