@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>好友成熟时间</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f8fb;color:#111827}.page{max-width:1180px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px}h1{margin:0;font-size:26px;color:#166534}p{margin:6px 0;color:#4b5563}.btn{border:1px solid #d1d5db;background:white;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}.btn.primary{background:#16a34a;color:white;border-color:#16a34a}.btn.warn{background:#f59e0b;color:white;border-color:#f59e0b}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.card{background:white;border-radius:16px;padding:14px;box-shadow:0 4px 14px rgba(15,23,42,.06)}.label{font-size:12px;color:#6b7280}.value{font-size:20px;font-weight:900;margin-top:4px}.panel{background:white;border-radius:18px;box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;margin-bottom:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #eef2f7}.panel-title{font-size:16px;font-weight:900}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left;white-space:nowrap}th{background:#f8fafc;color:#475569;font-size:12px}.mutant{color:#d97706;font-weight:800}.ready{color:#dc2626;font-weight:900}.ok{color:#16a34a;font-weight:800}.dim{color:#6b7280}.selected{background:#f0fdf4}.land-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:16px}.land{min-height:96px;border:1px solid #e5e7eb;border-radius:12px;padding:8px;background:#f9fafb;position:relative}.land.ready{background:#fef2f2;border-color:#fecaca}.land.soon{background:#fffbeb;border-color:#fde68a}.land .no{position:absolute;right:8px;top:6px;font-size:11px;color:#94a3b8}.land .name{font-size:12px;font-weight:900;margin-top:8px;white-space:normal}.land .time{font-size:11px;color:#475569;margin-top:6px;line-height:1.35}.log{max-height:220px;overflow:auto;padding:12px 16px;font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#0f172a;color:#d1fae5}.pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:12px;background:#eef2ff;color:#3730a3;font-weight:800}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}.land-grid{grid-template-columns:repeat(3,1fr)}}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f8fb;color:#111827}.page{max-width:1180px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px}h1{margin:0;font-size:26px;color:#166534}p{margin:6px 0;color:#4b5563}.btn{border:1px solid #d1d5db;background:white;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;text-decoration:none;color:#374151;display:inline-flex;align-items:center;gap:4px}.btn.primary{background:#16a34a;color:white;border-color:#16a34a}.btn.warn{background:#f59e0b;color:white;border-color:#f59e0b}.btn.blue{background:#2563eb;color:white;border-color:#2563eb}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.card{background:white;border-radius:16px;padding:14px;box-shadow:0 4px 14px rgba(15,23,42,.06)}.label{font-size:12px;color:#6b7280}.value{font-size:20px;font-weight:900;margin-top:4px}.panel{background:white;border-radius:18px;box-shadow:0 4px 14px rgba(15,23,42,.06);overflow:hidden;margin-bottom:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #eef2f7}.panel-title{font-size:16px;font-weight:900}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left;white-space:nowrap}th{background:#f8fafc;color:#475569;font-size:12px}.mutant{color:#d97706;font-weight:800}.ready{color:#dc2626;font-weight:900}.ok{color:#16a34a;font-weight:800}.dim{color:#6b7280}.selected{background:#f0fdf4}.land-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:16px}.land{min-height:96px;border:1px solid #e5e7eb;border-radius:12px;padding:8px;background:#f9fafb;position:relative}.land.ready{background:#fef2f2;border-color:#fecaca}.land.soon{background:#fffbeb;border-color:#fde68a}.land .no{position:absolute;right:8px;top:6px;font-size:11px;color:#94a3b8}.land .name{font-size:12px;font-weight:900;margin-top:8px;white-space:normal}.land .time{font-size:11px;color:#475569;margin-top:6px;line-height:1.35}.log{max-height:220px;overflow:auto;padding:12px 16px;font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#0f172a;color:#d1fae5}.pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:12px;background:#eef2ff;color:#3730a3;font-weight:800}.nav-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}.land-grid{grid-template-columns:repeat(3,1fr)}}
   </style>
 </head>
 <body>
@@ -15,7 +15,9 @@
         <h1>好友成熟时间</h1>
         <p>基于 farm-parse 抓包事件写入 SQLite；GID 是主键，名称仅展示。自动化只下发视觉点击命令，不发送游戏协议请求。</p>
       </div>
-      <div>
+      <div class="nav-actions">
+        <button class="btn" onclick="openHome()">🏠 主页</button>
+        <button class="btn" onclick="openProxy()">📡 抓包解析</button>
         <button class="btn" onclick="refreshAll()">刷新</button>
         <button class="btn primary" id="schedulerBtn" onclick="toggleScheduler()">调度状态</button>
       </div>
@@ -28,7 +30,7 @@
       <div class="card"><div class="label">最近好友</div><div class="value" id="lastFriend" style="font-size:14px">--</div></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="tasks">
       <div class="panel-head"><div class="panel-title">即将成熟 / 待摘取任务</div><span class="pill" id="taskHint">--</span></div>
       <div class="table-wrap"><table><thead><tr><th>状态</th><th>好友</th><th>GID</th><th>土地</th><th>作物</th><th>成熟时间</th><th>倒计时</th><th>操作</th></tr></thead><tbody id="tasksBody"></tbody></table></div>
     </section>
@@ -52,6 +54,13 @@
   <script>
     let selectedGid = null;
     let schedulerEnabled = true;
+
+    function parseBase() {
+      const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
+      return `${protocol}//${location.hostname}:8787`;
+    }
+    function openHome() { location.href = `${parseBase()}/`; }
+    function openProxy() { location.href = `${parseBase()}/proxy.html`; }
 
     function fmtTime(ms) {
       if (!ms) return '-';
