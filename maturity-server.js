@@ -60,8 +60,27 @@ function normalizeFilterList(value) {
   return [...new Set(raw.map(v => String(v || '').trim()).filter(Boolean))];
 }
 
+function minutesToMs(value, fallbackMs) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallbackMs;
+  return Math.max(60 * 1000, Math.round(n * 60 * 1000));
+}
+
+function msToMinutes(ms) {
+  const n = Number(ms || 0);
+  return Math.max(1, Math.round(n / 60000));
+}
+
 function normalizePushplusConfig(config = {}) {
   const base = defaultPushplusConfig();
+  const intervalMs = minutesToMs(
+    config.intervalMinutes ?? (config.intervalMs ? Number(config.intervalMs) / 60000 : undefined),
+    PUSHPLUS_BATCH_INTERVAL_MS
+  );
+  const windowMs = minutesToMs(
+    config.windowMinutes ?? (config.windowMs ? Number(config.windowMs) / 60000 : undefined),
+    PUSHPLUS_BATCH_WINDOW_MS
+  );
   return {
     ...base,
     ...config,
@@ -70,10 +89,20 @@ function normalizePushplusConfig(config = {}) {
     channel: String(config.channel || 'wechat').trim() || 'wechat',
     friendFilters: normalizeFilterList(config.friendFilters),
     cropFilters: normalizeFilterList(config.cropFilters),
-    intervalMs: Number(config.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS) || PUSHPLUS_BATCH_INTERVAL_MS,
-    windowMs: Number(config.windowMs || PUSHPLUS_BATCH_WINDOW_MS) || PUSHPLUS_BATCH_WINDOW_MS,
+    intervalMs,
+    windowMs,
     lastSentAt: Number(config.lastSentAt || 0) || 0,
     updatedAt: Number(config.updatedAt || 0) || 0,
+  };
+}
+
+function withPublicPushplusFields(cfg) {
+  return {
+    ...cfg,
+    intervalMinutes: msToMinutes(cfg.intervalMs),
+    windowMinutes: msToMinutes(cfg.windowMs),
+    tokenSet: Boolean(cfg.token),
+    tokenMasked: cfg.token ? `${cfg.token.slice(0, 4)}****${cfg.token.slice(-4)}` : '',
   };
 }
 
@@ -83,9 +112,7 @@ function readPushplusConfig({ includeToken = false } = {}) {
   if (fs.existsSync(file)) cfg = normalizePushplusConfig(safeJson(fs.readFileSync(file, 'utf8'), cfg));
   cfg = normalizePushplusConfig(cfg);
   if (process.env.PUSHPLUS_TOKEN && !cfg.token) cfg.token = process.env.PUSHPLUS_TOKEN;
-  const publicCfg = { ...cfg };
-  publicCfg.tokenSet = Boolean(cfg.token);
-  publicCfg.tokenMasked = cfg.token ? `${cfg.token.slice(0, 4)}****${cfg.token.slice(-4)}` : '';
+  const publicCfg = withPublicPushplusFields(cfg);
   if (!includeToken) delete publicCfg.token;
   return publicCfg;
 }
@@ -104,8 +131,8 @@ function savePushplusConfig(input = {}) {
     channel: String(input.channel || current.channel || 'wechat').trim() || 'wechat',
     friendFilters: normalizeFilterList(input.friendFilters),
     cropFilters: normalizeFilterList(input.cropFilters),
-    intervalMs: PUSHPLUS_BATCH_INTERVAL_MS,
-    windowMs: PUSHPLUS_BATCH_WINDOW_MS,
+    intervalMs: minutesToMs(input.intervalMinutes ?? (input.intervalMs ? Number(input.intervalMs) / 60000 : current.intervalMinutes), current.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS),
+    windowMs: minutesToMs(input.windowMinutes ?? (input.windowMs ? Number(input.windowMs) / 60000 : current.windowMinutes), current.windowMs || PUSHPLUS_BATCH_WINDOW_MS),
     updatedAt: Date.now(),
   };
   const token = String(input.token || '').trim();
@@ -190,6 +217,8 @@ function listUpcomingPushplusItems(cfg, nowMs = Date.now()) {
 
 function renderPushplusBatchMessage(items, cfg, nowMs = Date.now()) {
   const endMs = nowMs + Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS);
+  const intervalText = formatDuration(Number(cfg.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS));
+  const windowText = formatDuration(Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS));
   const rows = items.map(item => {
     const matureText = new Date(Number(item.matureAt)).toLocaleTimeString();
     const leftText = item.fruitNum ? `${item.leftFruitNum}/${item.fruitNum}` : '-';
@@ -198,7 +227,7 @@ function renderPushplusBatchMessage(items, cfg, nowMs = Date.now()) {
   return `
     <h3>农作物即将成熟</h3>
     <p>时间窗口：${escapeHtml(new Date(nowMs).toLocaleTimeString())} - ${escapeHtml(new Date(endMs).toLocaleTimeString())}</p>
-    <p>匹配到 <b>${items.length}</b> 块地。每半小时合并推送一次。</p>
+    <p>匹配到 <b>${items.length}</b> 块地。当前配置：每 ${escapeHtml(intervalText)} 合并推送一次，推送后续 ${escapeHtml(windowText)} 内成熟的信息。</p>
     <table border="1" cellpadding="6" cellspacing="0">
       <thead><tr><th>好友</th><th>作物</th><th>地块</th><th>成熟</th><th>倒计时</th><th>剩余</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -409,14 +438,15 @@ function startHttpServer() {
   app.post('/api/maturity/pushplus/config', (req, res) => res.json(savePushplusConfig(req.body || {})));
   app.get('/api/maturity/pushplus/preview', (_, res) => {
     const cfg = readPushplusConfig({ includeToken: true });
-    const items = listUpcomingPushplusItems(cfg, Date.now()).map(item => ({ ...item, matureAtText: new Date(item.matureAt).toLocaleString(), countdown: formatDuration(item.matureAt - Date.now()) }));
+    const nowMs = Date.now();
+    const items = listUpcomingPushplusItems(cfg, nowMs).map(item => ({ ...item, matureAtText: new Date(item.matureAt).toLocaleString(), countdown: formatDuration(item.matureAt - nowMs) }));
     res.json({ items, count: items.length, config: readPushplusConfig() });
   });
   app.post('/api/maturity/pushplus/test', async (_, res) => {
     try {
       const cfg = readPushplusConfig({ includeToken: true });
       if (!cfg.token) return res.status(400).json({ message: 'PushPlus token 为空，请先保存 token' });
-      const result = await pushplus.sendPushPlus({ token: cfg.token, channel: cfg.channel, title: 'Farm Parse PushPlus 测试', content: '<h3>PushPlus 配置成功</h3><p>后续会每半小时合并推送接下来半小时即将成熟的农作物。</p>', template: 'html' });
+      const result = await pushplus.sendPushPlus({ token: cfg.token, channel: cfg.channel, title: 'Farm Parse PushPlus 测试', content: `<h3>PushPlus 配置成功</h3><p>当前配置：每 ${escapeHtml(formatDuration(cfg.intervalMs))} 推送一次，合并后续 ${escapeHtml(formatDuration(cfg.windowMs))} 内即将成熟的农作物。</p>`, template: 'html' });
       res.json({ ok: true, result });
     } catch (error) {
       res.status(500).json({ message: error.message });
