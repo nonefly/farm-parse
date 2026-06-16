@@ -86,7 +86,7 @@ async function renderEnhancedFriendDetail(gid) {
   const data = await maturityGetFriendDetail(gid);
   const modal = document.getElementById('friendModal');
   const modalTitle = document.getElementById('modalTitle');
-  if (modalTitle) modalTitle.textContent = `${data.friend.name || '未知'} (${data.friend.gid}) 的土地作物详情`;
+  if (modalTitle) modalTitle.innerHTML = `<span style="cursor:pointer" onclick="copyToClipboard('${maturityEsc(data.friend.name || '')}');this.style.color='#16a34a';setTimeout(()=>this.style.color='',1500)">${maturityEsc(data.friend.name || '未知')}</span> (${data.friend.gid}) 的土地作物详情`;
 
   const lands = data.lands || [];
   const now = Date.now();

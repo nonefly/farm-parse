@@ -370,7 +370,7 @@
           <span class="badge ${badgeClass}">${event.mutantCount > 0 ? `发现 ${event.mutantCount} 个变异` : '解析成功'}</span>
         </div>
         <div class="summary">
-          <div class="summary-card"><div class="label">${event.isOwnFarm ? '我的农场' : '好友'}</div><div class="value">${ownerName}</div></div>
+          <div class="summary-card"><div class="label">${event.isOwnFarm ? '我的农场' : '好友'}</div><div class="value">${event.isOwnFarm ? ownerName : `<span style="cursor:pointer" onclick="navigator.clipboard.writeText('${ownerName.replace(/'/g, "\\'")}');this.style.color='#16a34a';setTimeout(()=>this.style.color='',1500)">${ownerName}</span>`}</div></div>
           <div class="summary-card"><div class="label">土地数</div><div class="value">${event.landCount || 0}</div></div>
         </div>
         <div class="section">
