@@ -147,8 +147,9 @@ async function searchCropByName() {
       if (maturityIsPickable(land, now)) row.pickableCount += 1;
     }
   }
-  const rows = [...groups.values()].sort((a, b) => (a.earliest || 9999999999999) - (b.earliest || 9999999999999));
-  if (hint) hint.textContent = `匹配 ${rows.length} 个好友/作物组合`;
+  const allRows = [...groups.values()].sort((a, b) => (a.earliest || 9999999999999) - (b.earliest || 9999999999999));
+  const rows = allRows.slice(0, 10);
+  if (hint) hint.textContent = `按成熟时间最近展示 ${rows.length}/${allRows.length} 条`;
   body.innerHTML = rows.map(r => `<tr onclick="selectFriend('${maturityEsc(r.friend.gid)}')"><td>${friendNameCell(r.friend)}<br><span class="dim">${maturityEsc(r.friend.gid)}</span></td><td>${plantIcon(r.name)} ${maturityEsc(r.name)}</td><td>${maturityEsc(r.landIds.join(', '))}</td><td>${maturityShortTime(r.earliest)}</td><td class="${r.earliest && r.earliest <= now ? 'ready' : ''}">${maturityFmtCountdown(r.earliest)}</td><td>${r.pickableCount}/${r.matureCount}</td></tr>`).join('') || '<tr><td colspan="6" class="dim">没有找到该农作物</td></tr>';
 }
 
