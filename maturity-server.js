@@ -7,6 +7,7 @@ const path = require('path');
 const express = require('express');
 const farmDb = require('./lib/farm-db');
 const { formatDuration } = require('./lib/maturity');
+const pushplus = require('./notify/pushplus');
 
 const HTTP_PORT = Number(process.env.FARM_MATURITY_PORT || 8790);
 const FARM_PARSE_BASE_URL = process.env.FARM_PARSE_BASE_URL || 'http://127.0.0.1:8787';
@@ -34,6 +35,23 @@ function isMaturePickable(land, nowMs = Date.now()) {
     && matureAt <= nowMs
     && Number(land?.stealable) === 1
     && Number(land?.left_fruit_num || 0) > 0;
+}
+
+function notifyFarm(title, payload, note) {
+  if (!pushplus.isEnabled()) return;
+  pushplus.sendFarmReminder({
+    title,
+    heading: title,
+    friendName: payload.friendName || payload.friend_name || '',
+    friendGid: payload.friendGid || payload.friend_gid || '',
+    plantName: payload.plantName || payload.plant_name || '',
+    landId: payload.landId || payload.land_id || '',
+    matureAt: payload.matureAt || payload.mature_at || 0,
+    note,
+  }).catch(error => {
+    console.warn('[maturity] PushPlus 推送失败:', error.message);
+    try { farmDb.addLog('warn', `PushPlus 推送失败: ${error.message}`); } catch {}
+  });
 }
 
 function connectFarmParseStream() {
@@ -101,12 +119,14 @@ function schedulerTick() {
         farmDb.enqueueCommand('harvest_loop', { ...basePayload, mode: 'countdown_harvest', humanLike: true, stayOnFarm: true, clickUntilMs: Math.max(75000, HARVEST_LOOP_BEFORE_MS + 20000), clickIntervalMinMs: 900, clickIntervalMaxMs: 1800 });
         farmDb.setTaskStatus(task.id, 'harvesting');
         farmDb.addLog('info', `排队连续点击收取: ${task.friend_name || task.friend_gid} 土地#${task.land_id}`, basePayload);
+        notifyFarm('农场开始摘取', basePayload, '成熟前最后一分钟，视觉程序开始连续点击收取坐标。');
         return;
       }
       if (untilMs <= PRECHECK_BEFORE_MS && task.status === 'pending') {
         farmDb.enqueueCommand('visit_friend', { ...basePayload, mode: 'precheck_before_mature', humanLike: true, stayOnFarm: true, note: `提前 ${formatDuration(PRECHECK_BEFORE_MS)} 访问，等待抓包刷新成熟时间，不执行催熟。` });
         farmDb.setTaskStatus(task.id, 'armed');
         farmDb.addLog('info', `排队提前访问好友: ${task.friend_name || task.friend_gid}，距成熟 ${formatDuration(untilMs)}`, basePayload);
+        notifyFarm('农场即将成熟', basePayload, `距离成熟约 ${formatDuration(untilMs)}，将提前访问好友并等待抓包校准。`);
         return;
       }
     }
@@ -164,6 +184,7 @@ function startHttpServer() {
       uptimeMs: Date.now() - state.startedAt,
       farmParseBaseUrl: FARM_PARSE_BASE_URL,
       unifiedPort: HTTP_PORT,
+      notify: { pushplus: pushplus.isEnabled() },
       scheduler: { enabled: state.schedulerEnabled, precheckBeforeMs: PRECHECK_BEFORE_MS, harvestLoopBeforeMs: HARVEST_LOOP_BEFORE_MS, intervalMs: SCHEDULER_INTERVAL_MS },
     });
   });
@@ -191,7 +212,10 @@ function startHttpServer() {
     const result = req.body?.result || {};
     const command = farmDb.completeCommand(req.params.id, status, result);
     const payload = safeJson(command?.payload_json, {});
-    if (payload.taskId && payload.mode === 'countdown_harvest') farmDb.markTask(payload.taskId, status === 'done' ? 'harvested' : 'failed', result.message || 'visual helper completed');
+    if (payload.taskId && payload.mode === 'countdown_harvest') {
+      farmDb.markTask(payload.taskId, status === 'done' ? 'harvested' : 'failed', result.message || 'visual helper completed');
+      notifyFarm(status === 'done' ? '农场摘取完成' : '农场摘取失败', payload, result.message || (status === 'done' ? '视觉程序已完成摘取流程。' : '视觉程序报告失败，请人工检查。'));
+    }
     res.json({ command });
   });
   app.get('/api/maturity/profiles/:gid', (req, res) => res.json(farmDb.getProfile(req.params.gid) || {}));
@@ -214,6 +238,7 @@ function startHttpServer() {
     console.log(`主页: http://127.0.0.1:${HTTP_PORT}/`);
     console.log(`成熟时间页: http://127.0.0.1:${HTTP_PORT}/maturity.html`);
     console.log(`内部 farm-parse: ${FARM_PARSE_BASE_URL}`);
+    console.log(`PushPlus 通知: ${pushplus.isEnabled() ? '已启用' : '未启用，设置 PUSHPLUS_TOKEN 后开启'}`);
     console.log('========================================');
   });
 }
