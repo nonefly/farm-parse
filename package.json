@@ -1,22 +1,18 @@
 {
   "name": "farm-parse",
   "version": "2.0.0",
-  "description": "Farm Parse desktop shell and maturity reminder dashboard",
-  "main": "electron-main.js",
+  "description": "Farm Parse local proxy and maturity reminder dashboard",
+  "main": "proxy-server.js",
   "bin": "start-all.js",
   "scripts": {
     "start": "node start-all.js",
     "proxy": "node proxy-server.js",
     "maturity": "node maturity-server.js",
-    "desktop": "electron .",
     "start:all": "node start-all.js",
-    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js && node --check notify/pushplus.js && node --check electron-main.js && node --check js/maturity-api-fallback.js && node --check js/proxy-page-fixes.js && node --check js/maturity-core.js && node --check js/maturity-extra.js && node --check js/maturity-detail.js && node --check js/pushplus-settings.js",
+    "check": "node --check start-all.js && node --check proxy-server.js && node --check maturity-server.js && node --check lib/maturity.js && node --check lib/farm-db.js && node --check notify/pushplus.js && node --check js/maturity-api-fallback.js && node --check js/proxy-page-fixes.js && node --check js/maturity-core.js && node --check js/maturity-extra.js && node --check js/maturity-detail.js && node --check js/pushplus-settings.js",
     "build": "node build.js",
     "build:win": "pkg . --targets node18-win-x64 --output dist/farm-parse-v2.0.0.exe",
-    "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v2.0.0",
-    "desktop:pack": "electron-builder --dir",
-    "desktop:win": "electron-builder --win",
-    "desktop:mac": "electron-builder --mac"
+    "build:mac": "pkg . --targets node18-macos-x64 --output dist/farm-parse-v2.0.0"
   },
   "repository": {
     "type": "git",
@@ -38,8 +34,6 @@
     "ws": "^8.20.1"
   },
   "devDependencies": {
-    "electron": "^42.0.1",
-    "electron-builder": "^26.8.1",
     "pkg": "^5.8.0"
   },
   "pkg": {
@@ -61,7 +55,6 @@
       "maturity.html",
       "README.use.md",
       "README.maturity.md",
-      "README.desktop.md",
       "AI_CONTEXT.md",
       "js/**/*.js",
       "proto/**/*.proto",
@@ -74,42 +67,5 @@
       "node18-macos-x64"
     ],
     "outputPath": "dist"
-  },
-  "build": {
-    "appId": "com.nonefly.farmparse",
-    "productName": "Farm Parse",
-    "asar": false,
-    "directories": {
-      "output": "dist-desktop"
-    },
-    "files": [
-      "electron-main.js",
-      "start-all.js",
-      "proxy-server.js",
-      "maturity-server.js",
-      "auth.html",
-      "index.html",
-      "proxy.html",
-      "maturity.html",
-      "README.use.md",
-      "README.maturity.md",
-      "README.desktop.md",
-      "AI_CONTEXT.md",
-      "lib/**/*",
-      "notify/**/*",
-      "js/**/*",
-      "proto/**/*",
-      "data/**/*",
-      "img/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": "nsis"
-    },
-    "mac": {
-      "target": "dmg",
-      "category": "public.app-category.utilities"
-    }
   }
 }
