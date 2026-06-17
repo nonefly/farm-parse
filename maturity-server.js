@@ -272,6 +272,29 @@ function renderPushplusBatchMessage(items, cfg, nowMs = Date.now()) {
   `;
 }
 
+function renderPushplusEmptyPreviewMessage(cfg, nowMs = Date.now()) {
+  const endMs = nowMs + Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS);
+  const intervalText = formatDuration(Number(cfg.intervalMs || PUSHPLUS_BATCH_INTERVAL_MS));
+  const windowText = formatDuration(Number(cfg.windowMs || PUSHPLUS_BATCH_WINDOW_MS));
+  return `
+    <h3>农作物即将成熟</h3>
+    <p>时间窗口：${escapeHtml(new Date(nowMs).toLocaleTimeString())} - ${escapeHtml(new Date(endMs).toLocaleTimeString())}</p>
+    <p>当前配置下，推送窗口内没有即将成熟的作物。</p>
+    <p>当前配置：每 ${escapeHtml(intervalText)} 合并推送一次，推送后续 ${escapeHtml(windowText)} 内成熟的信息。</p>
+  `;
+}
+
+function buildPushplusPreview(cfg, nowMs = Date.now()) {
+  const items = listUpcomingPushplusItems(cfg, nowMs).map(item => ({
+    ...item,
+    matureAtText: new Date(item.matureAt).toLocaleString(),
+    countdown: formatDuration(item.matureAt - nowMs),
+  }));
+  const groups = groupPushplusItemsByFriend(items);
+  const content = items.length ? renderPushplusBatchMessage(items, cfg, nowMs) : renderPushplusEmptyPreviewMessage(cfg, nowMs);
+  return { items, groups, content, nowMs };
+}
+
 async function runPushplusBatchNotification({ force = false } = {}) {
   const cfg = readPushplusConfig({ includeToken: true });
   if (!cfg.enabled || !cfg.token) return { skipped: true, reason: 'disabled or token empty' };
@@ -476,16 +499,19 @@ function startHttpServer() {
   app.post('/api/maturity/pushplus/config', (req, res) => res.json(savePushplusConfig(req.body || {})));
   app.get('/api/maturity/pushplus/preview', (_, res) => {
     const cfg = readPushplusConfig({ includeToken: true });
-    const nowMs = Date.now();
-    const items = listUpcomingPushplusItems(cfg, nowMs).map(item => ({ ...item, matureAtText: new Date(item.matureAt).toLocaleString(), countdown: formatDuration(item.matureAt - nowMs) }));
-    res.json({ items, count: items.length, groups: groupPushplusItemsByFriend(items), config: readPushplusConfig() });
+    const preview = buildPushplusPreview(cfg);
+    res.json({ items: preview.items, count: preview.items.length, groups: preview.groups, config: readPushplusConfig() });
   });
   app.post('/api/maturity/pushplus/test', async (_, res) => {
     try {
       const cfg = readPushplusConfig({ includeToken: true });
       if (!cfg.token) return res.status(400).json({ message: 'PushPlus token 为空，请先保存 token' });
-      const result = await pushplus.sendPushPlus({ token: cfg.token, channel: cfg.channel, title: 'Farm Parse PushPlus 测试', content: `<h3>PushPlus 配置成功</h3><p>当前配置：每 ${escapeHtml(formatDuration(cfg.intervalMs))} 推送一次，合并后续 ${escapeHtml(formatDuration(cfg.windowMs))} 内即将成熟的农作物。</p>`, template: 'html' });
-      res.json({ ok: true, result });
+      const preview = buildPushplusPreview(cfg);
+      const title = preview.items.length
+        ? `农作物即将成熟测试（${preview.groups.length}好友/${preview.items.length}块）`
+        : '农作物即将成熟测试（暂无匹配）';
+      const result = await pushplus.sendPushPlus({ token: cfg.token, channel: cfg.channel, title, content: preview.content, template: 'html' });
+      res.json({ ok: true, result, count: preview.items.length, friendCount: preview.groups.length });
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
