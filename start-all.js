@@ -58,6 +58,7 @@ function startBundledServices() {
 
   process.env.FARM_MATURITY_PORT = PUBLIC_HTTP_PORT;
   process.env.FARM_PARSE_BASE_URL = INTERNAL_BASE_URL;
+  process.env.FARM_UNIFIED_AUTH = '1';
   require('./maturity-server.js');
 }
 
