@@ -70,6 +70,12 @@ function ppShortTime(ms) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function ppFriendNameCell(group) {
+  const name = group.friendName || group.friendGid || '-';
+  const gid = group.friendGid || '';
+  return `${maturityEsc(name)}<button class="copy-name-btn" data-name="${maturityEsc(name)}" onclick="copyFriendName(event,this,this.dataset.name)" title="复制好友名称">复制</button><br><span class="dim">${maturityEsc(gid)}</span>`;
+}
+
 async function loadPushplusSettings() {
   try {
     const cfg = await pushplusApi('/api/maturity/pushplus/config');
@@ -120,7 +126,7 @@ async function previewPushplusSettings() {
       box.innerHTML = '<p class="dim">当前配置下，推送窗口内没有即将成熟的作物。</p>';
       return;
     }
-    box.innerHTML = `<table><thead><tr><th>好友</th><th>作物</th><th>地块</th><th>最早成熟</th><th>倒计时</th><th>合计</th></tr></thead><tbody>${groups.slice(0, 30).map(group => `<tr><td>${maturityEsc(group.friendName)}<br><span class="dim">${maturityEsc(group.friendGid)}</span></td><td>${ppFormatPlantCounts(group.plantCounts)}</td><td>${maturityEsc(group.landIds.join(', '))}</td><td>${maturityEsc(ppShortTime(group.earliest))}</td><td>${maturityEsc(maturityFmtCountdown(group.earliest))}</td><td>${group.count}块 · ${group.totalLeft}/${group.totalFruit}</td></tr>`).join('')}</tbody></table>`;
+    box.innerHTML = `<table><thead><tr><th>好友</th><th>作物</th><th>地块</th><th>最早成熟</th><th>倒计时</th><th>合计</th></tr></thead><tbody>${groups.slice(0, 30).map(group => `<tr><td>${ppFriendNameCell(group)}</td><td>${ppFormatPlantCounts(group.plantCounts)}</td><td>${maturityEsc(group.landIds.join(', '))}</td><td>${maturityEsc(ppShortTime(group.earliest))}</td><td>${maturityEsc(maturityFmtCountdown(group.earliest))}</td><td>${group.count}块 · ${group.totalLeft}/${group.totalFruit}</td></tr>`).join('')}</tbody></table>`;
   } catch (error) {
     ppSetStatus(`预览失败：${error.message}`, false);
     if (box) box.innerHTML = '';
@@ -129,9 +135,9 @@ async function previewPushplusSettings() {
 
 async function testPushplusSettings() {
   try {
-    ppSetStatus('正在发送测试消息...');
-    await pushplusApi('/api/maturity/pushplus/test', { method: 'POST' });
-    ppSetStatus('测试消息已发送');
+    ppSetStatus('正在发送当前预览内容...');
+    const data = await pushplusApi('/api/maturity/pushplus/test', { method: 'POST' });
+    ppSetStatus(`测试消息已发送：${data.count || 0} 块地，${data.friendCount || 0} 个好友`);
   } catch (error) {
     ppSetStatus(`测试失败：${error.message}`, false);
   }
