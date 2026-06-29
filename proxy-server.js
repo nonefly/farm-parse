@@ -1,7 +1,9 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const http = require('http');
 const https = require('https');
+const zlib = require('zlib');
 const crypto = require('crypto');
 const { execFile, execSync } = require('child_process');
 const readline = require('readline');
@@ -19,6 +21,9 @@ const MACHINE_CODE_SALT = 'farm-parse-machine-v1';
 const APP_DATA_DIR = IS_PACKAGED ? path.join(os.homedir(), '.farm-parse') : path.join(__dirname, '.farm-parse');
 const CERT_DIR = path.join(APP_DATA_DIR, 'proxy-certs');
 const CA_FILE = path.join(CERT_DIR, 'certs', 'ca.pem');
+const MAX_CAPTURED_REQUESTS = 300;
+const MAX_CAPTURED_BODY_BYTES = 512 * 1024;
+const MAX_WEBSOCKET_FRAMES = 120;
 
 const IS_WINDOWS = os.platform() === 'win32';
 const IS_MAC = os.platform() === 'darwin';
@@ -186,6 +191,7 @@ let protoTypes = null;
 let plantConfig = [];
 let proxyStarted = false;
 let machineInfoCache = null;
+let capturedRequests = [];
 
 const MUTATION_TYPE_MAP = {
     1: { name: '冰冻', icon: '❄️', class: 'mutant-ice' },
@@ -257,6 +263,230 @@ function getLocalAddresses() {
         }
     }
     return addresses;
+}
+
+function nowId(prefix) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function safeHeaderValue(value) {
+    if (Array.isArray(value)) return value.map(safeHeaderValue);
+    if (value == null) return '';
+    return String(value);
+}
+
+function serializeHeaders(headers) {
+    const result = {};
+    for (const [key, value] of Object.entries(headers || {})) {
+        result[key] = safeHeaderValue(value);
+    }
+    return result;
+}
+
+function getContentHeader(headers, name) {
+    const lowerName = name.toLowerCase();
+    for (const [key, value] of Object.entries(headers || {})) {
+        if (key.toLowerCase() === lowerName) return Array.isArray(value) ? value[0] : value;
+    }
+    return '';
+}
+
+function createBodyBucket() {
+    return { chunks: [], totalBytes: 0, capturedBytes: 0, truncated: false };
+}
+
+function appendBodyChunk(bucket, chunk) {
+    if (!bucket || !chunk) return;
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bucket.totalBytes += buffer.length;
+    if (bucket.capturedBytes >= MAX_CAPTURED_BODY_BYTES) {
+        bucket.truncated = true;
+        return;
+    }
+    const remaining = MAX_CAPTURED_BODY_BYTES - bucket.capturedBytes;
+    const captured = buffer.length > remaining ? buffer.subarray(0, remaining) : buffer;
+    bucket.chunks.push(captured);
+    bucket.capturedBytes += captured.length;
+    if (captured.length < buffer.length) bucket.truncated = true;
+}
+
+function decompressBody(buffer, headers) {
+    const encoding = String(getContentHeader(headers, 'content-encoding') || '').toLowerCase();
+    try {
+        if (encoding.includes('gzip')) return zlib.gunzipSync(buffer);
+        if (encoding.includes('deflate')) return zlib.inflateSync(buffer);
+        if (encoding.includes('br') && typeof zlib.brotliDecompressSync === 'function') {
+            return zlib.brotliDecompressSync(buffer);
+        }
+    } catch {
+        return buffer;
+    }
+    return buffer;
+}
+
+function isProbablyText(buffer, contentType) {
+    if (/json|text|xml|html|javascript|x-www-form-urlencoded|graphql|csv|plain/i.test(contentType || '')) {
+        return true;
+    }
+    if (buffer.length === 0) return true;
+    const sample = buffer.subarray(0, Math.min(buffer.length, 512));
+    let suspicious = 0;
+    for (const byte of sample) {
+        if (byte === 9 || byte === 10 || byte === 13) continue;
+        if (byte < 32 || byte === 127) suspicious += 1;
+    }
+    return suspicious / sample.length < 0.08;
+}
+
+function formatJsonText(text) {
+    try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+        return text;
+    }
+}
+
+function bodyPreview(bucket, headers) {
+    const source = bucket || createBodyBucket();
+    const raw = Buffer.concat(source.chunks || []);
+    const decoded = decompressBody(raw, headers);
+    const contentType = String(getContentHeader(headers, 'content-type') || '');
+    const textBody = isProbablyText(decoded, contentType);
+    const text = textBody
+        ? formatJsonText(decoded.toString('utf8'))
+        : decoded.subarray(0, 4096).toString('hex').replace(/(.{2})/g, '$1 ').trim();
+    return {
+        size: source.totalBytes || raw.length,
+        capturedSize: raw.length,
+        truncated: Boolean(source.truncated),
+        contentType,
+        contentEncoding: String(getContentHeader(headers, 'content-encoding') || ''),
+        encoding: textBody ? 'text' : 'hex',
+        text,
+        base64: textBody ? '' : decoded.toString('base64')
+    };
+}
+
+function buildHttpUrl(ctx) {
+    const req = ctx.clientToProxyRequest;
+    const reqUrl = String(req.url || '/');
+    if (/^https?:\/\//i.test(reqUrl)) return reqUrl;
+    const host = req.headers.host || ctx.connectRequest?.headers?.host || '';
+    const scheme = ctx.isSSL ? 'https' : 'http';
+    return `${scheme}://${host}${reqUrl.startsWith('/') ? reqUrl : `/${reqUrl}`}`;
+}
+
+function buildWebSocketUrl(ctx) {
+    const req = ctx.clientToProxyWebSocket?.upgradeReq;
+    const reqUrl = String(req?.url || '/');
+    if (/^wss?:\/\//i.test(reqUrl)) return reqUrl;
+    const host = req?.headers?.host || '';
+    const scheme = ctx.isSSL ? 'wss' : 'ws';
+    return `${scheme}://${host}${reqUrl.startsWith('/') ? reqUrl : `/${reqUrl}`}`;
+}
+
+function pushCapturedRequest(record) {
+    capturedRequests.unshift(record);
+    capturedRequests = capturedRequests.slice(0, MAX_CAPTURED_REQUESTS);
+}
+
+function createHttpCapture(ctx) {
+    const req = ctx.clientToProxyRequest;
+    const record = {
+        id: nowId('http'),
+        type: 'http',
+        startedAt: new Date().toISOString(),
+        method: req.method || 'GET',
+        url: buildHttpUrl(ctx),
+        host: String(req.headers.host || ''),
+        pending: true,
+        requestHeaders: req.headers || {},
+        responseHeaders: {},
+        requestBodyBucket: createBodyBucket(),
+        responseBodyBucket: createBodyBucket(),
+        statusCode: null,
+        statusMessage: '',
+        durationMs: null,
+        error: ''
+    };
+    pushCapturedRequest(record);
+    return record;
+}
+
+function createWebSocketCapture(ctx) {
+    const req = ctx.clientToProxyWebSocket?.upgradeReq;
+    const record = {
+        id: nowId('ws'),
+        type: 'websocket',
+        startedAt: new Date().toISOString(),
+        method: 'WS',
+        url: buildWebSocketUrl(ctx),
+        host: String(req?.headers?.host || ''),
+        pending: true,
+        requestHeaders: req?.headers || {},
+        responseHeaders: {},
+        statusCode: 101,
+        statusMessage: 'Switching Protocols',
+        durationMs: null,
+        error: '',
+        frames: []
+    };
+    pushCapturedRequest(record);
+    return record;
+}
+
+function appendWebSocketFrame(record, type, fromServer, data) {
+    if (!record) return;
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data || '');
+    record.frames.unshift({
+        time: new Date().toISOString(),
+        direction: fromServer ? 'response' : 'request',
+        type,
+        size: buffer.length,
+        encoding: isProbablyText(buffer, '') ? 'text' : 'hex',
+        text: isProbablyText(buffer, '')
+            ? buffer.toString('utf8').slice(0, 8192)
+            : buffer.subarray(0, 2048).toString('hex').replace(/(.{2})/g, '$1 ').trim()
+    });
+    record.frames = record.frames.slice(0, MAX_WEBSOCKET_FRAMES);
+}
+
+function finishHttpCapture(record) {
+    if (!record) return;
+    record.pending = false;
+    record.durationMs = Date.now() - new Date(record.startedAt).getTime();
+    record.requestBody = bodyPreview(record.requestBodyBucket, record.requestHeaders);
+    record.responseBody = bodyPreview(record.responseBodyBucket, record.responseHeaders);
+    delete record.requestBodyBucket;
+    delete record.responseBodyBucket;
+}
+
+function capturedRequestSummary(record) {
+    return {
+        id: record.id,
+        type: record.type,
+        method: record.method,
+        url: record.url,
+        host: record.host,
+        startedAt: record.startedAt,
+        pending: record.pending,
+        statusCode: record.statusCode,
+        durationMs: record.durationMs,
+        error: record.error || ''
+    };
+}
+
+function capturedRequestDetail(record) {
+    if (!record) return null;
+    return {
+        ...capturedRequestSummary(record),
+        statusMessage: record.statusMessage || '',
+        requestHeaders: serializeHeaders(record.requestHeaders),
+        responseHeaders: serializeHeaders(record.responseHeaders),
+        requestBody: record.requestBody || bodyPreview(record.requestBodyBucket, record.requestHeaders),
+        responseBody: record.responseBody || bodyPreview(record.responseBodyBucket, record.responseHeaders),
+        frames: record.frames || []
+    };
 }
 
 function normalizeText(value) {
@@ -622,6 +852,16 @@ function startProxy() {
     const proxy = new Proxy();
 
     proxy.onError((ctx, err, kind) => {
+        if (ctx?.farmCapture) {
+            ctx.farmCapture.error = `${kind || 'proxy'}: ${err.message}`;
+            ctx.farmCapture.pending = false;
+            ctx.farmCapture.durationMs = Date.now() - new Date(ctx.farmCapture.startedAt).getTime();
+        }
+        if (ctx?.farmWsCapture) {
+            ctx.farmWsCapture.error = `${kind || 'websocket'}: ${err.message}`;
+            ctx.farmWsCapture.pending = false;
+            ctx.farmWsCapture.durationMs = Date.now() - new Date(ctx.farmWsCapture.startedAt).getTime();
+        }
         if (kind === 'request' || kind === 'websocket') {
             return;
         }
@@ -642,6 +882,7 @@ function startProxy() {
     });
 
     proxy.onRequest((ctx, callback) => {
+        ctx.farmCapture = createHttpCapture(ctx);
         const host = ctx.clientToProxyRequest.headers.host;
         if (host && host.includes(TARGET_HOST)) {
             ctx.farmParseTarget = true;
@@ -649,7 +890,39 @@ function startProxy() {
         callback();
     });
 
+    proxy.onRequestData((ctx, chunk, callback) => {
+        appendBodyChunk(ctx.farmCapture?.requestBodyBucket, chunk);
+        callback(null, chunk);
+    });
+
+    proxy.onRequestEnd((ctx, callback) => {
+        if (ctx.farmCapture && !ctx.farmCapture.requestBody) {
+            ctx.farmCapture.requestBody = bodyPreview(ctx.farmCapture.requestBodyBucket, ctx.farmCapture.requestHeaders);
+        }
+        callback();
+    });
+
+    proxy.onResponse((ctx, callback) => {
+        if (ctx.farmCapture && ctx.serverToProxyResponse) {
+            ctx.farmCapture.statusCode = ctx.serverToProxyResponse.statusCode || null;
+            ctx.farmCapture.statusMessage = ctx.serverToProxyResponse.statusMessage || '';
+            ctx.farmCapture.responseHeaders = ctx.serverToProxyResponse.headers || {};
+        }
+        callback();
+    });
+
+    proxy.onResponseData((ctx, chunk, callback) => {
+        appendBodyChunk(ctx.farmCapture?.responseBodyBucket, chunk);
+        callback(null, chunk);
+    });
+
+    proxy.onResponseEnd((ctx, callback) => {
+        finishHttpCapture(ctx.farmCapture);
+        callback();
+    });
+
     proxy.onWebSocketConnection((ctx, callback) => {
+        ctx.farmWsCapture = createWebSocketCapture(ctx);
         ctx.farmParseTarget = isTargetWebSocket(ctx);
         if (ctx.farmParseTarget) {
             state.targetConnections += 1;
@@ -661,6 +934,11 @@ function startProxy() {
             });
         }
         callback();
+    });
+
+    proxy.onWebSocketFrame((ctx, type, fromServer, data, flags, callback) => {
+        appendWebSocketFrame(ctx.farmWsCapture, type, fromServer, data);
+        callback(null, data, flags);
     });
 
     proxy.onWebSocketMessage((ctx, message, flags, callback) => {
@@ -677,6 +955,16 @@ function startProxy() {
             }
         }
         callback(null, message, flags);
+    });
+
+    proxy.onWebSocketClose((ctx, code, message, callback) => {
+        if (ctx.farmWsCapture) {
+            ctx.farmWsCapture.pending = false;
+            ctx.farmWsCapture.durationMs = Date.now() - new Date(ctx.farmWsCapture.startedAt).getTime();
+            ctx.farmWsCapture.statusMessage = `Closed ${code || ''}`.trim();
+            if (message) ctx.farmWsCapture.error = String(message);
+        }
+        callback();
     });
 
     proxy.listen({
@@ -804,6 +1092,28 @@ function startHttp() {
         } catch (error) {
             res.json({ success: false, message: `刷新失败: ${error.message}` });
         }
+    });
+
+    app.get('/api/captures', (req, res) => {
+        const limit = Math.max(1, Math.min(Number(req.query.limit || 150), MAX_CAPTURED_REQUESTS));
+        res.json({
+            total: capturedRequests.length,
+            items: capturedRequests.slice(0, limit).map(capturedRequestSummary)
+        });
+    });
+
+    app.get('/api/captures/:id', (req, res) => {
+        const record = capturedRequests.find(item => item.id === req.params.id);
+        if (!record) {
+            res.status(404).json({ message: 'request capture not found' });
+            return;
+        }
+        res.json(capturedRequestDetail(record));
+    });
+
+    app.delete('/api/captures', (_, res) => {
+        capturedRequests = [];
+        res.json({ success: true });
     });
 
     app.get('/api/about', (_, res) => {
@@ -938,6 +1248,7 @@ function startHttp() {
             caPath: CA_FILE,
             httpPort: HTTP_PORT,
             proxyPort: PROXY_PORT,
+            capturedRequests: capturedRequests.length,
             target: `wss://${TARGET_HOST}${TARGET_PATH_PREFIX}?`,
             addresses: getLocalAddresses()
         });

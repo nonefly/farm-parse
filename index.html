@@ -16,6 +16,7 @@
     </section>
     <section class="grid">
       <article class="card"><div class="icon">📡</div><h2>抓包解析 / 变异查看</h2><p>开启系统代理、下载证书、解析农场 WebSocket 数据，展示土地、作物、成熟时间、数量和变异信息。</p><div class="actions"><a class="btn primary" href="/proxy.html">进入解析页面</a><a class="btn" href="/ca.cer" download>下载证书</a></div></article>
+      <article class="card"><div class="icon">🔎</div><h2>请求详情 / HTTP 抓包</h2><p>查看当前代理捕获到的所有 HTTP、HTTPS 和 WebSocket 请求。默认只展示 URL，点击后查看请求头、请求体、响应头和响应体。</p><div class="actions"><a class="btn primary" href="/requests.html">进入请求详情</a><a class="btn" href="/ca.cer" download>下载证书</a></div></article>
       <article class="card"><div class="icon">⏰</div><h2>成熟时间 / 好友作物</h2><p>查看 SQLite 中记录的好友 GID、农作物、土地、成熟时间、倒计时、成熟可摘数量。视觉调度后续也会挂在这个页面，不再单独做一个重复入口。</p><div class="actions"><a class="btn orange" href="/maturity.html">进入成熟时间页面</a><a class="btn" href="/api/maturity/status" target="_blank">查看服务状态</a></div></article>
     </section>
     <section class="panel"><h3>启动方式</h3><ol class="steps"><li>执行 <span class="mono">npm start</span>。</li><li>打开 <span class="mono">http://127.0.0.1:8787/</span>，从卡片进入各功能。</li><li>所有页面和 API 默认都从同一个前台端口访问。</li></ol><div class="hint">内部仍会有一个隐藏解析服务端口，由启动器自动管理，平时不需要打开。</div></section>

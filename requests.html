@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>请求抓包详情</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a;min-height:100vh}
+    .page{max-width:1280px;margin:0 auto;padding:18px 18px 36px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+    h1{margin:0;font-size:24px;color:#14532d}
+    .sub{margin:6px 0 0;color:#475569;font-size:13px;line-height:1.5}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;text-decoration:none;cursor:pointer}
+    .btn.primary{background:#16a34a;color:#fff;border-color:#16a34a}
+    .btn.danger{background:#dc2626;color:#fff;border-color:#dc2626}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:12px}
+    .search{min-width:220px;flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:14px}
+    .status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#475569;font-size:13px}
+    .pill{display:inline-flex;border-radius:999px;background:#dcfce7;color:#166534;padding:4px 9px;font-weight:800}
+    .layout{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:12px;align-items:start}
+    .list,.detail{background:#fff;border:1px solid #e2e8f0;border-radius:8px;min-height:560px;overflow:hidden}
+    .list-head,.detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+    .list-title,.detail-title{font-size:14px;font-weight:800}
+    .items{max-height:calc(100vh - 190px);overflow:auto}
+    .item{width:100%;display:block;border:0;border-bottom:1px solid #edf2f7;background:#fff;text-align:left;padding:10px 12px;cursor:pointer}
+    .item:hover,.item.active{background:#f0fdf4}
+    .url{font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.45;word-break:break-all;color:#0f172a}
+    .meta{display:flex;gap:8px;align-items:center;margin-top:5px;color:#64748b;font-size:11px}
+    .method{font-weight:800;color:#166534}
+    .code.ok{color:#15803d}.code.warn{color:#b45309}.code.bad{color:#b91c1c}
+    .empty{padding:42px 18px;text-align:center;color:#64748b;font-size:14px}
+    .detail-body{max-height:calc(100vh - 190px);overflow:auto;padding:12px}
+    .kv{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;margin-bottom:8px;font-size:13px}
+    .kv .k{color:#64748b;font-weight:700}.kv .v{word-break:break-all;font-family:ui-monospace,Consolas,monospace}
+    .section{border-top:1px solid #e2e8f0;padding-top:12px;margin-top:12px}
+    .section h2{margin:0 0 8px;font-size:15px}
+    pre{margin:0;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px;overflow:auto;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+    .hint{color:#64748b;font-size:12px;margin:6px 0 8px}
+    .tabs{display:flex;gap:6px;margin:8px 0}
+    .tab{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}
+    .tab.active{background:#14532d;color:#fff;border-color:#14532d}
+    .frame{border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-bottom:8px}
+    .frame-head{display:flex;justify-content:space-between;gap:8px;color:#475569;font-size:12px;margin-bottom:6px}
+    @media(max-width:860px){.layout{grid-template-columns:1fr}.list,.detail{min-height:auto}.items,.detail-body{max-height:none}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="top">
+      <div>
+        <h1>请求抓包详情</h1>
+        <p class="sub">复用当前代理和 CA 证书，默认展示请求 URL；点击 URL 查看请求与响应详情。</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="proxyToggle" onclick="toggleProxy()">启动代理</button>
+        <a class="btn" href="/ca.cer" download>下载 CA 证书</a>
+        <a class="btn" href="/proxy.html">返回解析页</a>
+        <a class="btn" href="/">主页</a>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <input class="search" id="filter" placeholder="按 URL / host 过滤" oninput="renderList()">
+      <div class="status">
+        <span class="pill" id="proxyStatus">代理检测中</span>
+        <span id="countText">0 条</span>
+        <label><input type="checkbox" id="autoRefresh" checked onchange="refreshNow()"> 自动刷新</label>
+        <button class="btn" onclick="refreshNow()">刷新</button>
+        <button class="btn danger" onclick="clearCaptures()">清空</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="list">
+        <div class="list-head">
+          <div class="list-title">请求 URL</div>
+          <div class="hint" id="lastRefresh">--</div>
+        </div>
+        <div class="items" id="items"><div class="empty">等待请求进入代理...</div></div>
+      </aside>
+      <section class="detail">
+        <div class="detail-head">
+          <div class="detail-title">请求 / 响应详情</div>
+          <button class="btn" id="copyUrlBtn" onclick="copySelectedUrl()" disabled>复制 URL</button>
+        </div>
+        <div class="detail-body" id="detail"><div class="empty">点击左侧 URL 查看详情。</div></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    let captures = [];
+    let selectedId = '';
+    let selectedDetail = null;
+    let proxyEnabled = false;
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[ch]);
+    }
+
+    function fmtTime(value) {
+      if (!value) return '--';
+      return new Date(value).toLocaleTimeString();
+    }
+
+    function statusClass(code) {
+      if (!code) return '';
+      if (code >= 200 && code < 400) return 'ok';
+      if (code >= 400) return 'bad';
+      return 'warn';
+    }
+
+    function filteredCaptures() {
+      const keyword = document.getElementById('filter').value.trim().toLowerCase();
+      if (!keyword) return captures;
+      return captures.filter(item =>
+        String(item.url || '').toLowerCase().includes(keyword) ||
+        String(item.host || '').toLowerCase().includes(keyword)
+      );
+    }
+
+    function renderList() {
+      const list = filteredCaptures();
+      document.getElementById('countText').textContent = `${captures.length} 条`;
+      const itemsEl = document.getElementById('items');
+      if (!list.length) {
+        itemsEl.innerHTML = '<div class="empty">没有匹配的请求。</div>';
+        return;
+      }
+      itemsEl.innerHTML = list.map(item => `
+        <button class="item ${item.id === selectedId ? 'active' : ''}" onclick="selectCapture('${item.id}')">
+          <div class="url">${escapeHtml(item.url)}</div>
+          <div class="meta">
+            <span class="method">${escapeHtml(item.method || item.type)}</span>
+            <span class="code ${statusClass(item.statusCode)}">${item.pending ? 'pending' : (item.statusCode || item.type)}</span>
+            <span>${item.durationMs == null ? '--' : `${item.durationMs}ms`}</span>
+            <span>${fmtTime(item.startedAt)}</span>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function renderHeaders(headers) {
+      const lines = Object.entries(headers || {}).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join('; ') : value}`);
+      return lines.length ? escapeHtml(lines.join('\n')) : '(empty)';
+    }
+
+    function renderBody(body) {
+      if (!body || !body.size) return '<div class="hint">(empty)</div>';
+      const note = `${body.encoding || 'text'} · ${body.capturedSize}/${body.size} bytes${body.truncated ? ' · 已截断' : ''}`;
+      return `<div class="hint">${escapeHtml(note)}</div><pre>${escapeHtml(body.text || '')}</pre>`;
+    }
+
+    function showTab(group, tab) {
+      document.querySelectorAll(`[data-group="${group}"]`).forEach(el => el.style.display = el.dataset.tab === tab ? '' : 'none');
+      document.querySelectorAll(`[data-tab-btn="${group}"]`).forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    }
+
+    function renderFrames(frames) {
+      if (!frames || !frames.length) return '<div class="hint">暂无 WebSocket 帧。</div>';
+      return frames.map(frame => `
+        <div class="frame">
+          <div class="frame-head"><span>${escapeHtml(frame.direction)} · ${escapeHtml(frame.type)} · ${frame.size} bytes</span><span>${fmtTime(frame.time)}</span></div>
+          <pre>${escapeHtml(frame.text || '')}</pre>
+        </div>
+      `).join('');
+    }
+
+    function renderDetail(data) {
+      selectedDetail = data;
+      document.getElementById('copyUrlBtn').disabled = !data;
+      if (!data) {
+        document.getElementById('detail').innerHTML = '<div class="empty">点击左侧 URL 查看详情。</div>';
+        return;
+      }
+      const isWebSocket = data.type === 'websocket';
+      document.getElementById('detail').innerHTML = `
+        <div class="kv"><div class="k">URL</div><div class="v">${escapeHtml(data.url)}</div></div>
+        <div class="kv"><div class="k">Method</div><div class="v">${escapeHtml(data.method)}</div></div>
+        <div class="kv"><div class="k">Status</div><div class="v">${escapeHtml(data.pending ? 'pending' : `${data.statusCode || ''} ${data.statusMessage || ''}`)}</div></div>
+        <div class="kv"><div class="k">Time</div><div class="v">${escapeHtml(data.startedAt)} · ${data.durationMs == null ? '--' : `${data.durationMs}ms`}</div></div>
+        ${data.error ? `<div class="kv"><div class="k">Error</div><div class="v">${escapeHtml(data.error)}</div></div>` : ''}
+        <div class="section">
+          <h2>请求</h2>
+          <div class="tabs">
+            <button class="tab active" data-tab-btn="req" data-tab="headers" onclick="showTab('req','headers')">Headers</button>
+            <button class="tab" data-tab-btn="req" data-tab="body" onclick="showTab('req','body')">Body</button>
+          </div>
+          <div data-group="req" data-tab="headers"><pre>${renderHeaders(data.requestHeaders)}</pre></div>
+          <div data-group="req" data-tab="body" style="display:none">${renderBody(data.requestBody)}</div>
+        </div>
+        <div class="section">
+          <h2>${isWebSocket ? 'WebSocket 帧' : '响应'}</h2>
+          ${isWebSocket ? renderFrames(data.frames) : `
+            <div class="tabs">
+              <button class="tab active" data-tab-btn="res" data-tab="headers" onclick="showTab('res','headers')">Headers</button>
+              <button class="tab" data-tab-btn="res" data-tab="body" onclick="showTab('res','body')">Body</button>
+            </div>
+            <div data-group="res" data-tab="headers"><pre>${renderHeaders(data.responseHeaders)}</pre></div>
+            <div data-group="res" data-tab="body" style="display:none">${renderBody(data.responseBody)}</div>
+          `}
+        </div>
+      `;
+    }
+
+    async function selectCapture(id) {
+      selectedId = id;
+      renderList();
+      const res = await fetch(`/api/captures/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        renderDetail(null);
+        return;
+      }
+      renderDetail(await res.json());
+    }
+
+    async function refreshStatus() {
+      try {
+        const res = await fetch('/api/proxy/status');
+        const data = await res.json();
+        proxyEnabled = Boolean(data.proxyEnabled);
+        const statusEl = document.getElementById('proxyStatus');
+        statusEl.textContent = `${data.proxyReady ? '代理已启动' : '代理待启动'} · ${data.proxyPort}`;
+        document.getElementById('proxyToggle').textContent = proxyEnabled ? '停止代理' : '启动代理';
+      } catch {
+        document.getElementById('proxyStatus').textContent = '代理不可用';
+      }
+    }
+
+    async function refreshNow() {
+      await refreshStatus();
+      const res = await fetch('/api/captures?limit=300');
+      const data = await res.json();
+      captures = data.items || [];
+      document.getElementById('lastRefresh').textContent = fmtTime(new Date().toISOString());
+      renderList();
+      if (selectedId && captures.some(item => item.id === selectedId)) {
+        await selectCapture(selectedId);
+      }
+    }
+
+    async function toggleProxy() {
+      const btn = document.getElementById('proxyToggle');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/proxy/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enable: !proxyEnabled })
+        });
+        const data = await res.json();
+        if (!data.success) alert(data.message || '代理操作失败');
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        refreshStatus();
+      }
+    }
+
+    async function clearCaptures() {
+      if (!confirm('确定清空当前抓包记录？')) return;
+      await fetch('/api/captures', { method: 'DELETE' });
+      captures = [];
+      selectedId = '';
+      renderList();
+      renderDetail(null);
+    }
+
+    async function copySelectedUrl() {
+      if (!selectedDetail) return;
+      await navigator.clipboard.writeText(selectedDetail.url);
+    }
+
+    refreshNow();
+    setInterval(() => {
+      if (document.getElementById('autoRefresh').checked) refreshNow();
+    }, 1500);
+  </script>
+</body>
+</html>
